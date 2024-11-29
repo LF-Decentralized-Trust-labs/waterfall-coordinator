@@ -17,6 +17,14 @@ func (s *State) MigrateToCold(ctx context.Context, fRoot [32]byte) error {
 	ctx, span := trace.StartSpan(ctx, "stateGen.MigrateToCold")
 	defer span.End()
 
+	// skip if another process running
+	if s.isMigratingToCold.Load() {
+		log.Warn("MigrateToCold: skipping: already running")
+		return nil
+	}
+	s.isMigratingToCold.Store(true)
+	defer s.isMigratingToCold.Store(false)
+
 	s.finalizedInfo.lock.RLock()
 	oldFSlot := s.finalizedInfo.slot
 	s.finalizedInfo.lock.RUnlock()

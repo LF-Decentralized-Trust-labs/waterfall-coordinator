@@ -236,10 +236,10 @@ func verifyDeposit(beaconState state.ReadOnlyBeaconState, deposit *ethpb.Deposit
 	}
 	log.WithFields(logrus.Fields{
 		" stEth1DepositIndex": beaconState.Eth1DepositIndex(),
-		"receiptRoot":         fmt.Sprintf("%#x", receiptRoot),
-		"leaf":                fmt.Sprintf("%#x", leaf),
-		"TreeDepth":           params.BeaconConfig().DepositContractTreeDepth,
-		"proofs":              proofs,
+		//"receiptRoot":         fmt.Sprintf("%#x", receiptRoot),
+		//"leaf":                fmt.Sprintf("%#x", leaf),
+		//"TreeDepth":           params.BeaconConfig().DepositContractTreeDepth,
+		//"proofs":              proofs,
 	}).Info("DEPOSIT verify")
 
 	if ok := trie.VerifyMerkleProofWithDepth(
