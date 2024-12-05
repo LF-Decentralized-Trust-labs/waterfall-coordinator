@@ -7,6 +7,7 @@ import (
 	"context"
 	"errors"
 	"sync"
+	"sync/atomic"
 
 	types "github.com/prysmaticlabs/eth2-types"
 	"gitlab.waterfall.network/waterfall/protocol/coordinator/beacon-chain/cache"
@@ -55,6 +56,7 @@ type State struct {
 	epochBoundaryStateCache *epochBoundaryState
 	saveHotStateDB          *saveHotStateDbConfig
 	backfillStatus          *backfill.Status
+	isMigratingToCold       atomic.Bool
 }
 
 // This tracks the config in the event of long non-finality,
