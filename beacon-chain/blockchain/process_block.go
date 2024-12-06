@@ -628,6 +628,16 @@ func (s *Service) onBlockBatch(ctx context.Context, blks []block.SignedBeaconBlo
 		}).Error("Block batch handling error")
 		return nil, nil, err
 	}
+
+	lastFinCp := fCheckpoints[len(fCheckpoints)-1]
+
+	err = s.ForkChoicer().Prune(ctx, [32]byte(lastFinCp.Root))
+	if err != nil {
+		log.WithError(err).WithFields(logrus.Fields{
+			"checkpointRoot": lastFinCp.Root,
+		}).Error("ForkChoicer cache prune error")
+	}
+
 	return fCheckpoints, jCheckpoints, nil
 }
 
