@@ -263,6 +263,7 @@ func (s *Service) StateTracker() {
 				log.WithFields(logrus.Fields{
 					"s.lastHandledSlot":         s.lastHandledSlot,
 					"s.lastReceivedMerkleIndex": s.lastReceivedMerkleIndex,
+					"isInitialSync":             data.InitialSync,
 				}).Info("=== LogProcessing: StateTracker: EVT: BlockProcessed 000000000")
 
 				if !data.InitialSync {
@@ -866,7 +867,7 @@ func (s *Service) run(done <-chan struct{}) {
 	// check delegating stake fork active
 	if params.BeaconConfig().IsDelegatingStakeSlot(s.lastHandledSlot) {
 		log.WithFields(logrus.Fields{
-			"slot":                        s.lastHandledSlot,
+			"lastHandledSlot":             s.lastHandledSlot,
 			"s.preGenesisState.BlockHash": fmt.Sprintf("%#x", s.preGenesisState.Eth1Data().BlockHash),
 			//"EthLFinHash":          fmt.Sprintf("%#x", header.Hash()),
 			"lastEth.LastReqBlock":    s.latestEth1Data.LastRequestedBlock,

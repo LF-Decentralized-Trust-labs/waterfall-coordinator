@@ -472,3 +472,11 @@ message ExecutionPayloadHeader {
     bytes block_hash = 13 [(ethereum.eth.ext.ssz_size) = "32"];
     bytes transactions_root = 14 [(ethereum.eth.ext.ssz_size) = "32"];
 }
+
+message VoluntaryExitList {
+    repeated VoluntaryExit data  = 1 [(ethereum.eth.ext.ssz_max) = "16777216"];
+}
+
+message WithdrawalList {
+    repeated Withdrawal data  = 1 [(ethereum.eth.ext.ssz_max) = "16777216"];
+}

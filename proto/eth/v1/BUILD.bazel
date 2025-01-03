@@ -57,6 +57,9 @@ ssz_gen_marshal(
         "SyncAggregate",
         "Validator",
         "VoluntaryExit",
+        "Withdrawal",
+        "VoluntaryExitList",
+        "WithdrawalList",
     ],
 )
 

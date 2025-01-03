@@ -104,6 +104,9 @@ ssz_gen_marshal(
         "BlindedBeaconBlockBellatrix",
         "BlindedBeaconBlockBodyBellatrix",
         "PreVote",
+        "Withdrawal",
+        "VoluntaryExitList",
+        "WithdrawalList",
     ],
 )
 
