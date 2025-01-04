@@ -111,6 +111,12 @@ type HeadAccessDatabase interface {
 	// initialization method needed for origin checkpoint sync
 	SaveOrigin(ctx context.Context, serState, serBlock []byte) error
 	SaveBackfillBlockRoot(ctx context.Context, blockRoot [32]byte) error
+
+	// validator op pools
+	ReadWithdrawalPool(ctx context.Context) ([]*ethpb.Withdrawal, error)
+	WriteWithdrawalPool(ctx context.Context, withdrawals []*ethpb.Withdrawal) error
+	ReadExitPool(ctx context.Context) ([]*ethpb.VoluntaryExit, error)
+	WriteExitPool(ctx context.Context, exits []*ethpb.VoluntaryExit) error
 }
 
 // SlasherDatabase interface for persisting data related to detecting slashable offenses on Ethereum.

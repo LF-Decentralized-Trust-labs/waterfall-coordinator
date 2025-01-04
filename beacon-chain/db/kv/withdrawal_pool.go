@@ -34,10 +34,10 @@ func (s *Store) ReadWithdrawalPool(ctx context.Context) ([]*ethpb.Withdrawal, er
 
 	err = s.db.View(func(tx *bolt.Tx) error {
 		bkt := tx.Bucket(valOpPoolBucket)
-		raw = bkt.Get(key[:])
+		raw = bkt.Get(key)
 		return err
 	})
-	var data []*ethpb.Withdrawal
+	var data = make([]*ethpb.Withdrawal, 0)
 	if err == nil && raw != nil {
 		poolData := &ethpb.WithdrawalList{}
 		if err := poolData.UnmarshalSSZ(raw); err != nil {
@@ -63,7 +63,7 @@ func (s *Store) WriteWithdrawalPool(ctx context.Context, withdrawals []*ethpb.Wi
 	}
 	return s.db.Batch(func(tx *bolt.Tx) error {
 		bkt := tx.Bucket(valOpPoolBucket)
-		if err := bkt.Put(key[:], buff); err != nil {
+		if err := bkt.Put(key, buff); err != nil {
 			return err
 		}
 		return nil
@@ -76,7 +76,7 @@ func (s *Store) DeleteWithdrawalPool(ctx context.Context) error {
 	defer span.End()
 	key := withdrawalOpPoolKey
 	return s.db.Batch(func(tx *bolt.Tx) error {
-		if err := tx.Bucket(valOpPoolBucket).Delete(key[:]); err != nil {
+		if err := tx.Bucket(valOpPoolBucket).Delete(key); err != nil {
 			return err
 		}
 		return nil

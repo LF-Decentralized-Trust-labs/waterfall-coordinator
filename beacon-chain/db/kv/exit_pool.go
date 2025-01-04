@@ -32,10 +32,10 @@ func (s *Store) ReadExitPool(ctx context.Context) ([]*ethpb.VoluntaryExit, error
 	key := exitOpPoolKey
 	err = s.db.View(func(tx *bolt.Tx) error {
 		bkt := tx.Bucket(valOpPoolBucket)
-		raw = bkt.Get(key[:])
+		raw = bkt.Get(key)
 		return err
 	})
-	var data []*ethpb.VoluntaryExit
+	var data = make([]*ethpb.VoluntaryExit, 0)
 	if err == nil && raw != nil {
 		poolData := &ethpb.VoluntaryExitList{}
 		if err := poolData.UnmarshalSSZ(raw); err != nil {
@@ -61,7 +61,7 @@ func (s *Store) WriteExitPool(ctx context.Context, exits []*ethpb.VoluntaryExit)
 	}
 	return s.db.Batch(func(tx *bolt.Tx) error {
 		bkt := tx.Bucket(valOpPoolBucket)
-		if err := bkt.Put(key[:], buff); err != nil {
+		if err := bkt.Put(key, buff); err != nil {
 			return err
 		}
 		return nil
@@ -74,7 +74,7 @@ func (s *Store) DeleteExitPool(ctx context.Context) error {
 	defer span.End()
 	key := exitOpPoolKey
 	return s.db.Batch(func(tx *bolt.Tx) error {
-		if err := tx.Bucket(valOpPoolBucket).Delete(key[:]); err != nil {
+		if err := tx.Bucket(valOpPoolBucket).Delete(key); err != nil {
 			return err
 		}
 		return nil
