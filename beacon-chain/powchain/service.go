@@ -257,7 +257,7 @@ func NewService(ctx context.Context, opts ...Option) (*Service, error) {
 			" InitTxHash":     fmt.Sprintf("%#x", op.InitTxHash),
 			"Epoch":           fmt.Sprintf("%d", op.Epoch),
 			" ValidatorIndex": fmt.Sprintf("%d", op.ValidatorIndex),
-		}).Info("Exit pool:  load saved op")
+		}).Info("Exit pool: load saved op")
 		s.cfg.exitPool.InsertVoluntaryExitByGwat(ctx, op)
 	}
 
