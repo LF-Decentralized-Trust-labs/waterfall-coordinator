@@ -139,11 +139,6 @@ func (s *Service) ProcessWithdrawalLog(ctx context.Context, wtdLog gwatTypes.Log
 		Epoch:          curEpoch + 2, // min 1 epoch to propagate op by network
 	}
 	s.cfg.withdrawalPool.InsertWithdrawal(ctx, withdrawal)
-	err = s.cfg.beaconDB.WriteWithdrawalPool(ctx, s.cfg.withdrawalPool.CopyItems())
-	if err != nil {
-		return err
-	}
-
 	return nil
 }
 
@@ -182,10 +177,6 @@ func (s *Service) ProcessExitLog(ctx context.Context, exitLog gwatTypes.Log) err
 		InitTxHash:     exitLog.TxHash.Bytes(),
 	}
 	s.cfg.exitPool.InsertVoluntaryExitByGwat(ctx, exit)
-	err = s.cfg.beaconDB.WriteExitPool(ctx, s.cfg.exitPool.CopyItems())
-	if err != nil {
-		return err
-	}
 
 	log.WithError(err).WithFields(logrus.Fields{
 		"exit.valIndex":   exit.ValidatorIndex,

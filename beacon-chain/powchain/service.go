@@ -481,6 +481,21 @@ func (s *Service) StateTracker() {
 				s.handleETH1FollowDistance()
 				s.checkDefaultEndpoint(s.ctx)
 
+				err = s.cfg.beaconDB.WriteWithdrawalPool(s.ctx, s.cfg.withdrawalPool.CopyItems())
+				if err != nil {
+					log.WithError(err).WithFields(logrus.Fields{
+						"poolItms": len(s.cfg.withdrawalPool.CopyItems()),
+						"st.Slot":  st.Slot(),
+					}).Error("=== LogProcessing: StateTracker: EVT: FinalizedCheckpoint: save withdrawal pool failed")
+				}
+				err = s.cfg.beaconDB.WriteExitPool(s.ctx, s.cfg.exitPool.CopyItems())
+				if err != nil {
+					log.WithError(err).WithFields(logrus.Fields{
+						"poolItms": len(s.cfg.exitPool.CopyItems()),
+						"st.Slot":  st.Slot(),
+					}).Error("=== LogProcessing: StateTracker: EVT: FinalizedCheckpoint: save exit pool failed")
+				}
+
 				s.lastHandledBlock = bytesutil.ToBytes32(data.Block)
 				//s.lastHandledSlot = st.Slot()
 				s.lastHandledState = st
