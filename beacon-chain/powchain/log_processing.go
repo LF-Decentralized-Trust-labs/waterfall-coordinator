@@ -131,15 +131,14 @@ func (s *Service) ProcessWithdrawalLog(ctx context.Context, wtdLog gwatTypes.Log
 		return errors.Wrap(err, "Could not unpack log (withdrawal)")
 	}
 
-	exit := &ethpb.Withdrawal{
+	withdrawal := &ethpb.Withdrawal{
 		PublicKey:      pubkey.Bytes(),
 		ValidatorIndex: types.ValidatorIndex(valIndex),
 		InitTxHash:     wtdLog.TxHash.Bytes(),
 		Amount:         amtGwei,
 		Epoch:          curEpoch + 2, // min 1 epoch to propagate op by network
 	}
-	s.cfg.withdrawalPool.InsertWithdrawal(ctx, exit)
-
+	s.cfg.withdrawalPool.InsertWithdrawal(ctx, withdrawal)
 	return nil
 }
 
@@ -177,7 +176,6 @@ func (s *Service) ProcessExitLog(ctx context.Context, exitLog gwatTypes.Log) err
 		ValidatorIndex: types.ValidatorIndex(valIndex),
 		InitTxHash:     exitLog.TxHash.Bytes(),
 	}
-
 	s.cfg.exitPool.InsertVoluntaryExitByGwat(ctx, exit)
 
 	log.WithError(err).WithFields(logrus.Fields{

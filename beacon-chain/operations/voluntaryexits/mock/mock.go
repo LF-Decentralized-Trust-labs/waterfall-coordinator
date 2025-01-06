@@ -33,6 +33,10 @@ func (m *PoolMock) PendingExits(_ state.ReadOnlyBeaconState, _ types.Slot, _ boo
 	return m.Exits
 }
 
+func (m *PoolMock) CopyItems() []*eth.VoluntaryExit {
+	return m.Exits
+}
+
 // InsertVoluntaryExit --
 func (m *PoolMock) InsertVoluntaryExit(_ context.Context, _ state.ReadOnlyBeaconState, exit *eth.VoluntaryExit) {
 	m.Exits = append(m.Exits, exit)

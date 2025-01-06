@@ -41,6 +41,7 @@ type PoolManager interface {
 	MarkIncluded(withdrawal *ethpb.Withdrawal)
 	OnSlot(st state.ReadOnlyBeaconState)
 	Verify(withdrawal *ethpb.Withdrawal) error
+	CopyItems() []*ethpb.Withdrawal
 }
 
 // Pool is a concrete implementation of PoolManager.
@@ -309,4 +310,21 @@ func validateWithdrawal(itm *ethpb.Withdrawal, st state.ReadOnlyBeaconState) err
 		return fmt.Errorf("validate: low balance bal=%d < amt=%d", bal, itm.Amount)
 	}
 	return nil
+}
+
+func (p *Pool) CopyItems() []*ethpb.Withdrawal {
+	p.lock.RLock()
+	defer p.lock.RUnlock()
+
+	result := make([]*ethpb.Withdrawal, len(p.pending))
+	for i, op := range p.pending {
+		result[i] = &ethpb.Withdrawal{
+			PublicKey:      bytesutil.SafeCopyBytes(op.PublicKey),
+			ValidatorIndex: op.ValidatorIndex,
+			Amount:         op.Amount,
+			InitTxHash:     bytesutil.SafeCopyBytes(op.InitTxHash),
+			Epoch:          op.Epoch,
+		}
+	}
+	return result
 }

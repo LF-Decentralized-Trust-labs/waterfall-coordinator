@@ -11,6 +11,7 @@ import (
 	log "github.com/sirupsen/logrus"
 	"gitlab.waterfall.network/waterfall/protocol/coordinator/beacon-chain/state"
 	"gitlab.waterfall.network/waterfall/protocol/coordinator/config/params"
+	"gitlab.waterfall.network/waterfall/protocol/coordinator/encoding/bytesutil"
 	ethpb "gitlab.waterfall.network/waterfall/protocol/coordinator/proto/prysm/v1alpha1"
 	"gitlab.waterfall.network/waterfall/protocol/coordinator/time/slots"
 	"go.opencensus.io/trace"
@@ -24,6 +25,7 @@ type PoolManager interface {
 	MarkIncluded(exit *ethpb.VoluntaryExit)
 	OnSlot(st state.ReadOnlyBeaconState)
 	Verify(exit *ethpb.VoluntaryExit) error
+	CopyItems() []*ethpb.VoluntaryExit
 	// Deprecated
 	InsertVoluntaryExit(ctx context.Context, state state.ReadOnlyBeaconState, exit *ethpb.VoluntaryExit)
 }
@@ -210,4 +212,19 @@ func validateVoluntaryExit(itm *ethpb.VoluntaryExit, st state.ReadOnlyBeaconStat
 		return false
 	}
 	return true
+}
+
+func (p *Pool) CopyItems() []*ethpb.VoluntaryExit {
+	p.lock.RLock()
+	defer p.lock.RUnlock()
+
+	result := make([]*ethpb.VoluntaryExit, len(p.pending))
+	for i, op := range p.pending {
+		result[i] = &ethpb.VoluntaryExit{
+			Epoch:          op.Epoch,
+			ValidatorIndex: op.ValidatorIndex,
+			InitTxHash:     bytesutil.SafeCopyBytes(op.InitTxHash),
+		}
+	}
+	return result
 }
