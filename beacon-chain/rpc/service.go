@@ -1,4 +1,4 @@
-// Package rpc defines a gRPC server implementing the Ethereum consensus API as needed
+// Package rpc defines a gRPC server implementing the consensus API as needed
 // by validator clients and consumers of chain data.
 package rpc
 

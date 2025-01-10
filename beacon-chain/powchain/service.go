@@ -82,7 +82,7 @@ type ChainStartFetcher interface {
 	ClearPreGenesisData()
 }
 
-// ChainInfoFetcher retrieves information about eth1 metadata at the Ethereum consensus genesis time.
+// ChainInfoFetcher retrieves information about eth1 metadata at the consensus genesis time.
 type ChainInfoFetcher interface {
 	Eth2GenesisPowchainInfo() (uint64, *big.Int)
 	IsConnectedToETH1() bool
@@ -145,7 +145,7 @@ type config struct {
 }
 
 // Service fetches important information about the canonical
-// Ethereum ETH1.0 chain via a web3 endpoint using an ethclient. The Random
+// shard chain via a web3 endpoint using an ethclient. The Random
 // Beacon Chain requires synchronization with the ETH1.0 chain's current
 // blockhash, block number, and access to logs within the
 // Validator Registration Contract on the ETH1.0 chain to kick off the beacon

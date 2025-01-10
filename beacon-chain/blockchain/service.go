@@ -1,5 +1,5 @@
-// Package blockchain defines the life-cycle of the blockchain at the core of
-// Ethereum, including processing of new blocks and attestations using proof of stake.
+// Package blockchain defines the life-cycle of the blockchain,
+// including processing of new blocks and attestations using proof of stake.
 package blockchain
 
 import (

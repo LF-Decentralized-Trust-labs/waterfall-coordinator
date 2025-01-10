@@ -30,7 +30,7 @@ type NetworkConfig struct {
 	NodeIdBits                  uint64 `yaml:"NODE_ID_BITS" spec:"true"`                   // NodeIdBits defines the bit length of a node id.
 
 	// DiscoveryV5 Config
-	ETH2Key                    string   // ETH2Key is the ENR key of the Ethereum consensus object in an enr.
+	ETH2Key                    string   // ETH2Key is the ENR key of the consensus object in an enr.
 	AttSubnetKey               string   // AttSubnetKey is the ENR key of the subnet bitfield in the enr.
 	SyncCommsSubnetKey         string   // SyncCommsSubnetKey is the ENR key of the sync committee subnet bitfield in the enr.
 	MinimumPeersInSubnetSearch uint64   // PeersInSubnetSearch is the required amount of peers that we need to be able to lookup in a subnet search.

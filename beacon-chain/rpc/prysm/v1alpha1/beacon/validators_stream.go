@@ -52,7 +52,7 @@ type infostream struct {
 	genesisTime         uint64
 }
 
-// eth1Deposit contains information about a deposit made on the Ethereum 1 chain.
+// eth1Deposit contains information about a deposit made on the chain.
 type eth1Deposit struct {
 	block *big.Int
 	data  *ethpb.Deposit_Data

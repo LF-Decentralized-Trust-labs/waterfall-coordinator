@@ -41,7 +41,7 @@ var ErrNilInnerState = errors.New("nil inner state")
 
 var ErrBlockVotingNotFound = errors.New("blockVoting root not found")
 
-// BeaconState defines a struct containing utilities for the Ethereum Beacon Chain state, defining
+// BeaconState defines a struct containing utilities for the Beacon Chain state, defining
 // getters and setters for its respective values and helpful functions such as HashTreeRoot().
 type BeaconState struct {
 	state                 *ethpb.BeaconState

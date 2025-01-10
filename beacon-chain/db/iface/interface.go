@@ -119,7 +119,7 @@ type HeadAccessDatabase interface {
 	WriteExitPool(ctx context.Context, exits []*ethpb.VoluntaryExit) error
 }
 
-// SlasherDatabase interface for persisting data related to detecting slashable offenses on Ethereum.
+// SlasherDatabase interface for persisting data related to detecting slashable offenses.
 type SlasherDatabase interface {
 	io.Closer
 	SaveLastEpochsWrittenForValidators(

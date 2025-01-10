@@ -68,8 +68,7 @@ func ActivateValidatorWithEffectiveBalance(beaconState state.BeaconState, deposi
 }
 
 // ProcessDeposits is one of the operations performed on each processed
-// beacon block to verify queued validators from the Ethereum 1.0 Deposit Contract
-// into the beacon chain.
+// beacon block to verify queued validators deposites into the beacon chain.
 //
 // Spec pseudocode definition:
 //

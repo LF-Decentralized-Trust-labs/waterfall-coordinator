@@ -1,3 +1,6 @@
+/*
+This tool can be used to query a coordinator node to print eth1voting information.
+*/
 package main
 
 import (

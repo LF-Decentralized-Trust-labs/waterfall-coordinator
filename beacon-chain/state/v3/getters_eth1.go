@@ -32,7 +32,7 @@ func (b *BeaconState) eth1Data() *ethpb.Eth1Data {
 	return ethpb.CopyETH1Data(b.state.Eth1Data)
 }
 
-// Eth1DataVotes corresponds to votes from Ethereum on the canonical proof-of-work chain
+// Eth1DataVotes corresponds to votes from coordinator on the canonical shard chain
 // data retrieved from eth1.
 func (b *BeaconState) Eth1DataVotes() []*ethpb.Eth1Data {
 	if !b.hasInnerState() {
@@ -48,7 +48,7 @@ func (b *BeaconState) Eth1DataVotes() []*ethpb.Eth1Data {
 	return b.eth1DataVotes()
 }
 
-// eth1DataVotes corresponds to votes from Ethereum on the canonical proof-of-work chain
+// eth1DataVotes corresponds to votes from coordinator on the canonical shard chain
 // data retrieved from eth1.
 // This assumes that a lock is already held on BeaconState.
 func (b *BeaconState) eth1DataVotes() []*ethpb.Eth1Data {

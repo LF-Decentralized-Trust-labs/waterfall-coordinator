@@ -1,5 +1,5 @@
 /*
-Package p2p implements the Ethereum consensus networking specification.
+Package p2p implements the consensus networking specification.
 
 Canonical spec reference: https://github.com/ethereum/consensus-specs/blob/dev/specs/phase0/p2p-interface.md
 

@@ -1,4 +1,4 @@
-// Package forks contains useful helpers for Ethereum consensus fork-related functionality.
+// Package forks contains useful helpers for consensus fork-related functionality.
 package forks
 
 import (

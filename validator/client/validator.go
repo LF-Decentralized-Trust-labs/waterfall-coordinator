@@ -1,5 +1,5 @@
 // Package client represents a gRPC polling-based implementation
-// of an Ethereum validator client.
+// of validator client.
 package client
 
 import (
