@@ -253,13 +253,13 @@ p2p_peer_count{state="Connected"} 37
 p2p_peer_count{state="Connecting"} 0
 p2p_peer_count{state="Disconnected"} 62
 p2p_peer_count{state="Disconnecting"} 0
-# HELP powchain_sync_eth1_connected Boolean indicating whether a fallback eth1 endpoint is currently connected: 0=false, 1=true.
+# HELP powchain_sync_eth1_connected Boolean indicating whether a fallback shard-node  endpoint is currently connected: 0=false, 1=true.
 # TYPE powchain_sync_eth1_connected gauge
 powchain_sync_eth1_connected 1
-# HELP powchain_sync_eth1_fallback_configured Boolean recording whether a fallback eth1 endpoint was configured: 0=false, 1=true.
+# HELP powchain_sync_eth1_fallback_configured Boolean recording whether a fallback shard-node  endpoint was configured: 0=false, 1=true.
 # TYPE powchain_sync_eth1_fallback_configured gauge
 powchain_sync_eth1_fallback_configured 1
-# HELP powchain_sync_eth1_fallback_connected Boolean indicating whether a fallback eth1 endpoint is currently connected: 0=false, 1=true.
+# HELP powchain_sync_eth1_fallback_connected Boolean indicating whether a fallback shard-node  endpoint is currently connected: 0=false, 1=true.
 # TYPE powchain_sync_eth1_fallback_connected gauge
 powchain_sync_eth1_fallback_connected 1
 `

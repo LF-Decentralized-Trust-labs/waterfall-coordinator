@@ -63,6 +63,8 @@ func BaseRewardPerIncrement(activeBalance uint64) (uint64, error) {
 	return cfg.EffectiveBalanceIncrement * cfg.BaseRewardFactor / math.IntegerSquareRoot(activeBalance), nil
 }
 
+// CalculateBaseReward calculates the base reward value
+// for further calculation of amounts validators rewards and penalties.
 func CalculateBaseReward(config *params.BeaconChainConfig, validatorsNum int, activeValidatorsForSlot uint64, rewardMultiplier float64) uint64 {
 	var (
 		secondsInYear = 60 * 60 * 24 * 365.25 // Number of seconds in year

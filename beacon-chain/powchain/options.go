@@ -13,6 +13,7 @@ import (
 	"gitlab.waterfall.network/waterfall/protocol/gwat/common"
 )
 
+// Option defines options to initilize service.
 type Option func(s *Service) error
 
 // WithHttpEndpoints deduplicates and parses http endpoints for the powchain service to use,

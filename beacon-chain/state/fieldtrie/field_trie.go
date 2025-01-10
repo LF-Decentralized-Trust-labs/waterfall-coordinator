@@ -1,3 +1,6 @@
+/*
+Package implements trie functionality.
+*/
 package fieldtrie
 
 import (

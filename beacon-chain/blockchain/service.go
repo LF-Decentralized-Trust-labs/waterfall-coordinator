@@ -214,10 +214,12 @@ func (s *Service) isSynchronizing() bool {
 	return s.fnIsSync()
 }
 
+// IsSynced returns true if node of coordinator is synchronized otherwise - false.
 func (s *Service) IsSynced() bool {
 	return !s.isSynchronizing()
 }
 
+// IsGwatSynchronizing returns true if shard-node is not synchronized otherwise - false.
 func (s *Service) IsGwatSynchronizing() bool {
 	return s.isGwatSyncing.IsSet()
 }

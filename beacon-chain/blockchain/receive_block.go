@@ -20,6 +20,8 @@ var epochsSinceFinalitySaveHotStateDB = types.Epoch(100)
 
 var ErrBlockIsProcessing = errors.New("block is processing")
 
+// SyncBlockchainService defines the interface for interaction with block chain service
+// for sync service.
 type SyncBlockchainService interface {
 	BlockReceiver
 	HeadFetcher
@@ -31,6 +33,8 @@ type SyncBlockchainService interface {
 	CanonicalFetcher
 }
 
+// InitialSyncBlockchainService defines the interface for interaction with block chain service
+// for initial-sync service.
 type InitialSyncBlockchainService interface {
 	BlockReceiver
 	ChainInfoFetcher
@@ -239,6 +243,7 @@ func (s *Service) rmBlockProcessing(slot types.Slot, proposerIdx types.Validator
 	s.procBlockCache.Remove(string(key))
 }
 
+// IsBlockRootProcessing returns true if block processing otherwise - false.
 func (s *Service) IsBlockRootProcessing(root [32]byte) bool {
 	_, isProc := s.procBlockCache.Get(root)
 	return isProc

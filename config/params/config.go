@@ -222,7 +222,10 @@ type BeaconChainConfig struct {
 	DefaultFeeRecipient              common.Address // DefaultFeeRecipient where the transaction fee goes to.
 }
 
+// CtxFnKey key of function of context.
 type CtxFnKey string
+
+// CtxBlockFetcher provides block info required for state transition.
 type CtxBlockFetcher func(context.Context, [32]byte) (types.ValidatorIndex, types.Slot, uint64, error)
 
 // InitializeForkSchedule initializes the schedules forks baked into the config.

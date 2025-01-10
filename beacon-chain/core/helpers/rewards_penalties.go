@@ -299,6 +299,7 @@ func initLogRewardsAndPenalties(st state.BeaconState) error {
 	return nil
 }
 
+// LogBalanceChanges prepare data and writes log of operation changes balance in state.
 func LogBeforeRewardsAndPenalties(
 	st state.BeaconState,
 	validator types.ValidatorIndex,
@@ -333,6 +334,7 @@ func LogBeforeRewardsAndPenalties(
 	return LogBalanceChanges(validator, before, amount, after, st.Slot(), votesIncluded, operation, role)
 }
 
+// LogBalanceChanges writes log for operation changes balance in state.
 func LogBalanceChanges(
 	index types.ValidatorIndex,
 	before, delta, after uint64,

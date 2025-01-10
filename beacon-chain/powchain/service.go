@@ -1,5 +1,5 @@
 // Package powchain defines a runtime service which is tasked with
-// communicating with an eth1 endpoint, processing logs from a deposit
+// communicating with an shard-node  endpoint, processing logs from a deposit
 // contract, and the latest eth1 data headers for usage in the beacon node.
 package powchain
 
@@ -607,7 +607,7 @@ func (s *Service) IsConnectedToETH1() bool {
 	return s.connectedETH1
 }
 
-// CurrentETH1Endpoint returns the URL of the current ETH1 endpoint.
+// CurrentETH1Endpoint returns the URL of the current shard-node  endpoint.
 func (s *Service) CurrentETH1Endpoint() string {
 	return s.cfg.currHttpEndpoint.Url
 }

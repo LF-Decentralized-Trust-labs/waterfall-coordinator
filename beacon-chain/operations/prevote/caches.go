@@ -35,6 +35,7 @@ type PrevoteCache struct {
 	seenPrevote      *cache.Cache
 }
 
+// NewPool initializes a new PreVote pool.
 func NewPrevoteCache() *PrevoteCache {
 	secsInEpoch := time.Duration(params.BeaconConfig().SlotsPerEpoch.Mul(params.BeaconConfig().SecondsPerSlot))
 	c := cache.New(secsInEpoch*time.Second, 2*secsInEpoch*time.Second)

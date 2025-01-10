@@ -221,7 +221,7 @@ func (ns *Server) ListPeers(ctx context.Context, _ *empty.Empty) (*ethpb.Peers, 
 	}, nil
 }
 
-// GetETH1ConnectionStatus gets data about the ETH1 endpoints.
+// GetETH1ConnectionStatus gets data about the shard-node  endpoints.
 func (ns *Server) GetETH1ConnectionStatus(ctx context.Context, _ *empty.Empty) (*ethpb.ETH1ConnectionStatus, error) {
 	var errStrs []string
 	errs := ns.POWChainInfoFetcher.ETH1ConnectionErrors()
