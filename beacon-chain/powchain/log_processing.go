@@ -218,6 +218,7 @@ func (s *Service) ProcessDepositLog(ctx context.Context, depositLog gwatTypes.Lo
 
 	if index != s.lastReceivedMerkleIndex+1 {
 		missedDepositLogsCount.Inc()
+		s.setLastRequestedBlockByDepositCache()
 		return errors.Errorf("received incorrect merkle index: wanted %d but got %d", s.lastReceivedMerkleIndex+1, index)
 	}
 	s.lastReceivedMerkleIndex = index
@@ -725,6 +726,7 @@ func (s *Service) ProcessDepositBlock(deposit *ethpb.Deposit, depositIndex uint6
 
 	if index != s.lastReceivedMerkleIndex+1 {
 		missedDepositLogsCount.Inc()
+		s.setLastRequestedBlockByDepositCache()
 		return errors.Errorf("block deposit processing: received incorrect merkle index: wanted %d but got %d", s.lastReceivedMerkleIndex+1, index)
 	}
 	s.lastReceivedMerkleIndex = index
@@ -821,4 +823,20 @@ func (s *Service) handleFinalizedDeposits(cpRoot [32]byte) (int, error) {
 		offset++
 	}
 	return offset, nil
+}
+
+func (s *Service) setLastRequestedBlockByDepositCache() {
+	blknr, ok := s.cfg.depositCache.GetBlockNrByDepositIndex(s.ctx, s.lastReceivedMerkleIndex)
+	if !ok {
+		log.WithFields(logrus.Fields{
+			" blknr":                  blknr,
+			"lastReceivedMerkleIndex": fmt.Sprintf("%d", s.lastReceivedMerkleIndex),
+		}).Error("=== LogProcessing: StateTracker: EVT: FinalizedCheckpoint: set LastRequestedBlock failed")
+		return
+	}
+	log.WithFields(logrus.Fields{
+		" blknr":                  blknr,
+		"lastReceivedMerkleIndex": fmt.Sprintf("%d", s.lastReceivedMerkleIndex),
+	}).Info("=== LogProcessing: StateTracker: EVT: FinalizedCheckpoint: set LastRequestedBlock")
+	s.latestEth1Data.LastRequestedBlock = blknr
 }
