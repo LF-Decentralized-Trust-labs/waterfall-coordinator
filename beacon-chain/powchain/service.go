@@ -390,8 +390,6 @@ func (s *Service) StateTracker() {
 						continue
 					}
 
-					s.setLastRequestedBlockByDepositCache()
-
 					prevRoot := bytesutil.ToBytes32(st.FinalizedCheckpoint().Root)
 					prevSt, err := s.cfg.stateGen.StateByRoot(s.ctx, prevRoot)
 					if err != nil {
@@ -438,6 +436,7 @@ func (s *Service) StateTracker() {
 					s.latestEth1Data.BlockTime = prevHeader.Time
 					s.latestEth1Data.CpHash = baseSpine.Bytes()
 					s.latestEth1Data.CpNr = prevHeader.Nr()
+					s.setLastRequestedBlockByDepositCache()
 				}
 
 				baseSpine := helpers.GetTerminalFinalizedSpine(st)
