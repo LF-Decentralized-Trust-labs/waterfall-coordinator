@@ -436,7 +436,7 @@ func (s *Service) StateTracker() {
 					s.latestEth1Data.BlockTime = prevHeader.Time
 					s.latestEth1Data.CpHash = baseSpine.Bytes()
 					s.latestEth1Data.CpNr = prevHeader.Nr()
-					s.latestEth1Data.LastRequestedBlock = s.followBlockHeight(s.ctx)
+					s.setLastRequestedBlockByDepositCache()
 				}
 
 				baseSpine := helpers.GetTerminalFinalizedSpine(st)
