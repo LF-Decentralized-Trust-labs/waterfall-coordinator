@@ -118,15 +118,16 @@ func (dc *DepositCache) InsertDeposit(ctx context.Context, d *ethpb.Deposit, blo
 	dc.depositsByKey[pubkey] = append(dc.depositsByKey[pubkey], depCtr)
 	historicalDepositsCount.Inc()
 
-	dHashTreeRoot, err := d.Data.HashTreeRoot()
-	log.WithError(err).WithFields(logrus.Fields{
-		" depositRoot":     fmt.Sprintf("%#x", depositRoot),
-		"eth1Block":        blockNum,
-		"dep.HashTreeRoot": fmt.Sprintf("%#x", dHashTreeRoot),
-		"dep.initTxHash":   fmt.Sprintf("%#x", d.Data.InitTxHash),
-		"dep.Index":        index,
-	}).Info("InsertDeposit")
-
+	if d.Data != nil {
+		dHashTreeRoot, err := d.Data.HashTreeRoot()
+		log.WithError(err).WithFields(logrus.Fields{
+			" depositRoot":     fmt.Sprintf("%#x", depositRoot),
+			"eth1Block":        blockNum,
+			"dep.HashTreeRoot": fmt.Sprintf("%#x", dHashTreeRoot),
+			"dep.initTxHash":   fmt.Sprintf("%#x", d.Data.InitTxHash),
+			"dep.Index":        index,
+		}).Info("InsertDeposit")
+	}
 	return nil
 }
 

@@ -46,14 +46,16 @@ func (dc *DepositCache) InsertPendingDeposit(ctx context.Context, d *ethpb.Depos
 	pendingDepositsCount.Inc()
 	span.AddAttributes(trace.Int64Attribute("count", int64(len(dc.pendingDeposits))))
 
-	dHashTreeRoot, err := d.Data.HashTreeRoot()
-	log.WithError(err).WithFields(logrus.Fields{
-		" depositRoot":     fmt.Sprintf("%#x", depositRoot),
-		"eth1Block":        blockNum,
-		"dep.HashTreeRoot": fmt.Sprintf("%#x", dHashTreeRoot),
-		"dep.initTxHash":   fmt.Sprintf("%#x", d.Data.InitTxHash),
-		"dep.Index":        index,
-	}).Info("InsertPendingDeposit")
+	if d.Data != nil {
+		dHashTreeRoot, err := d.Data.HashTreeRoot()
+		log.WithError(err).WithFields(logrus.Fields{
+			" depositRoot":     fmt.Sprintf("%#x", depositRoot),
+			"eth1Block":        blockNum,
+			"dep.HashTreeRoot": fmt.Sprintf("%#x", dHashTreeRoot),
+			"dep.initTxHash":   fmt.Sprintf("%#x", d.Data.InitTxHash),
+			"dep.Index":        index,
+		}).Info("InsertPendingDeposit")
+	}
 }
 
 // PendingDeposits returns a list of deposits until the given block number
