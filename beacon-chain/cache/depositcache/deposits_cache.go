@@ -7,6 +7,7 @@ package depositcache
 import (
 	"context"
 	"encoding/hex"
+	"fmt"
 	"math/big"
 	"sort"
 	"sync"
@@ -116,6 +117,16 @@ func (dc *DepositCache) InsertDeposit(ctx context.Context, d *ethpb.Deposit, blo
 	pubkey := bytesutil.ToBytes48(d.Data.PublicKey)
 	dc.depositsByKey[pubkey] = append(dc.depositsByKey[pubkey], depCtr)
 	historicalDepositsCount.Inc()
+
+	dHashTreeRoot, err := d.Data.HashTreeRoot()
+	log.WithError(err).WithFields(logrus.Fields{
+		" depositRoot":     fmt.Sprintf("%#x", depositRoot),
+		"eth1Block":        blockNum,
+		"dep.HashTreeRoot": fmt.Sprintf("%#x", dHashTreeRoot),
+		"dep.initTxHash":   fmt.Sprintf("%#x", d.Data.InitTxHash),
+		"dep.Index":        index,
+	}).Info("InsertDeposit")
+
 	return nil
 }
 
