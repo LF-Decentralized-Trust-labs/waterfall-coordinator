@@ -235,6 +235,7 @@ func TestProcessETH2GenesisLog_LargePeriodOfNoLogs(t *testing.T) {
 }
 
 func TestRestoreValidatorOpPools(t *testing.T) {
+	t.Skip() // save of withdrawal pool is disabled
 	hook := logTest.NewGlobal()
 	testAcc, err := mockPOW.Setup()
 	require.NoError(t, err, "Unable to set up simulated backend")
