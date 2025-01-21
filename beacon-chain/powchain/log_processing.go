@@ -811,7 +811,8 @@ func (s *Service) handleFinalizedDeposits(cpRoot [32]byte) (int, error) {
 		if bBlock == nil {
 			return 0, fmt.Errorf("beacon block not found")
 		}
-		for _, dep := range bBlock.Block().Body().Deposits() {
+		for i := len(bBlock.Block().Body().Deposits()) - 1; i >= 0; i-- {
+			dep := bBlock.Block().Body().Deposits()[i]
 			deposits = append(deposits, dep)
 			currIndex--
 		}
