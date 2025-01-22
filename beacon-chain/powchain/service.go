@@ -391,53 +391,10 @@ func (s *Service) StateTracker() {
 						continue
 					}
 
-					prevRoot := bytesutil.ToBytes32(st.FinalizedCheckpoint().Root)
-					prevSt, err := s.cfg.stateGen.StateByRoot(s.ctx, prevRoot)
+					err = s.initStateTrackerWorkMode(data, st)
 					if err != nil {
-						if !s.pollConnActive {
-							// check gwat connection
-							head, err := s.eth1DataFetcher.HeaderByNumber(s.ctx, nil)
-							log.WithError(err).WithFields(logrus.Fields{
-								"head": fmt.Sprintf("%v", head),
-							}).Info("=== LogProcessing: pollConnActive: 000")
-							if err != nil {
-								go s.pollConnectionStatus(s.ctx)
-							}
-						}
-						log.WithField("evtType", "FinalizedCheckpoint").Error("Event handler: retrieve state failed")
 						continue
 					}
-
-					baseSpine := helpers.GetTerminalFinalizedSpine(prevSt)
-					prevHeader, err := s.eth1DataFetcher.HeaderByHash(s.ctx, baseSpine)
-					if err != nil {
-						log.WithError(err).Error("Could not fetch latest shard1 header")
-						handledCount, err := s.handleFinalizedDeposits(bytesutil.ToBytes32(data.Block))
-						log.WithError(err).WithFields(logrus.Fields{
-							"cpBlock":      fmt.Sprintf("%#x", data.Block),
-							"handledCount": handledCount,
-						}).Info("=== LogProcessing: StateTracker: EVT: FinalizedCheckpoint: handle finalized deposits 333")
-
-						if !s.pollConnActive {
-							// check gwat connection
-							head, err := s.eth1DataFetcher.HeaderByNumber(s.ctx, nil)
-							log.WithError(err).WithFields(logrus.Fields{
-								"head": fmt.Sprintf("%v", head),
-							}).Info("=== LogProcessing: pollConnActive: 111")
-							if err != nil {
-								go s.pollConnectionStatus(s.ctx)
-							}
-						}
-						continue
-					}
-					s.lastHandledState = prevSt
-					blockNumberGauge.Set(float64(prevHeader.Nr()))
-					s.latestEth1Data.BlockHeight = prevHeader.Nr()
-					s.latestEth1Data.BlockHash = baseSpine.Bytes()
-					s.latestEth1Data.BlockTime = prevHeader.Time
-					s.latestEth1Data.CpHash = baseSpine.Bytes()
-					s.latestEth1Data.CpNr = prevHeader.Nr()
-					s.setLastRequestedBlockByDepositCache()
 				}
 
 				baseSpine := helpers.GetTerminalFinalizedSpine(st)
@@ -504,6 +461,85 @@ func (s *Service) StateTracker() {
 			}
 		}
 	}
+}
+
+func (s *Service) isDepositRootInvalide() bool {
+	//todo check depositRoot implementation is required
+	log.Warn("=== LogProcessing: StateTracker: EVT: FinalizedCheckpoint: check depositRoot implementation is required")
+	return true
+}
+
+func (s *Service) initStateTrackerWorkMode(data *ethpbv1.EventFinalizedCheckpoint, st state.BeaconState) error {
+	if s.isDepositRootInvalide() {
+		// reset to recalculate all deposits
+		prevSt, err := s.cfg.beaconDB.GenesisState(s.ctx)
+		if err != nil {
+			log.WithError(err).Error("Init state tracker work mode: retrieve state failed")
+			return err
+		}
+		err = s.resetEth1Data(s.ctx)
+		if err != nil {
+			log.WithError(err).Error("Init state tracker work mode: reset eth data failed")
+			return err
+		}
+		baseSpine := helpers.GetTerminalFinalizedSpine(prevSt)
+		s.lastHandledState = prevSt
+		blockNumberGauge.Set(0)
+		s.latestEth1Data.BlockHash = baseSpine.Bytes()
+		s.latestEth1Data.BlockTime = prevSt.GenesisTime()
+		s.latestEth1Data.CpHash = baseSpine.Bytes()
+		s.latestEth1Data.LastRequestedBlock = 0
+		return nil
+	}
+
+	prevRoot := bytesutil.ToBytes32(st.FinalizedCheckpoint().Root)
+	prevSt, err := s.cfg.stateGen.StateByRoot(s.ctx, prevRoot)
+	if err != nil {
+		if !s.pollConnActive {
+			// check gwat connection
+			head, err1 := s.eth1DataFetcher.HeaderByNumber(s.ctx, nil)
+			log.WithError(err1).WithFields(logrus.Fields{
+				"head": fmt.Sprintf("%v", head),
+			}).Info("=== LogProcessing: pollConnActive: 000")
+			if err1 != nil {
+				go s.pollConnectionStatus(s.ctx)
+			}
+		}
+		log.WithField("evtType", "FinalizedCheckpoint").Error("Event handler: retrieve state failed")
+		return err
+	}
+
+	baseSpine := helpers.GetTerminalFinalizedSpine(prevSt)
+	prevHeader, err := s.eth1DataFetcher.HeaderByHash(s.ctx, baseSpine)
+	if err != nil {
+		log.WithError(err).Error("=== LogProcessing: Could not fetch latest shard1 header")
+		handledCount, err0 := s.handleFinalizedDeposits(bytesutil.ToBytes32(data.Block))
+		log.WithError(err0).WithFields(logrus.Fields{
+			"cpBlock":      fmt.Sprintf("%#x", data.Block),
+			"handledCount": handledCount,
+		}).Info("=== LogProcessing: StateTracker: EVT: FinalizedCheckpoint: handle finalized deposits 333")
+
+		if !s.pollConnActive {
+			// check gwat connection
+			head, err1 := s.eth1DataFetcher.HeaderByNumber(s.ctx, nil)
+			log.WithError(err1).WithFields(logrus.Fields{
+				"head": fmt.Sprintf("%v", head),
+			}).Info("=== LogProcessing: pollConnActive: 111")
+			if err1 != nil {
+				go s.pollConnectionStatus(s.ctx)
+			}
+		}
+		return err
+	}
+	s.lastHandledState = prevSt
+	blockNumberGauge.Set(float64(prevHeader.Nr()))
+	s.latestEth1Data.BlockHeight = prevHeader.Nr()
+	s.latestEth1Data.BlockHash = baseSpine.Bytes()
+	s.latestEth1Data.BlockTime = prevHeader.Time
+	s.latestEth1Data.CpHash = baseSpine.Bytes()
+	s.latestEth1Data.CpNr = prevHeader.Nr()
+	s.setLastRequestedBlockByDepositCache()
+	return nil
 }
 
 // Start a web3 service's main event loop.
@@ -1061,6 +1097,44 @@ func (s *Service) initializeEth1Data(ctx context.Context, eth1DataInDB *ethpb.ET
 	if err := s.initDepositCaches(ctx, eth1DataInDB.DepositContainers); err != nil {
 		return errors.Wrap(err, "could not initialize caches")
 	}
+	return nil
+}
+
+// resets eth1data properties to recalculate all tx-logs starting from genesis
+func (s *Service) resetEth1Data(ctx context.Context) error {
+	depositTrie, err := trie.NewTrie(params.BeaconConfig().DepositContractTreeDepth)
+	if err != nil {
+		return errors.Wrap(err, "could not reset deposit trie")
+	}
+	genState, err := transition.EmptyGenesisState()
+	if err != nil {
+		return errors.Wrap(err, "reset: could not reset genesis state")
+	}
+	err = s.cfg.depositCache.Reset(ctx)
+	if err != nil {
+		return errors.Wrap(err, "reset: could not reset deposit trie")
+	}
+	s.depositTrie = depositTrie
+	s.chainStartData = &ethpb.ChainStartData{
+		Eth1Data:           &ethpb.Eth1Data{},
+		ChainstartDeposits: make([]*ethpb.Deposit, 0),
+	}
+	s.preGenesisState = genState
+	s.latestEth1Data = &ethpb.LatestETH1Data{
+		BlockHeight:        0,
+		BlockTime:          0,
+		BlockHash:          []byte{},
+		LastRequestedBlock: 0,
+		CpHash:             []byte{},
+		CpNr:               0,
+	}
+	numOfItems := s.depositTrie.NumOfItems()
+	s.lastReceivedMerkleIndex = int64(numOfItems - 1)
+
+	s.lastHandledBlock = [32]byte{} // last handled beacon block root
+	s.lastHandledSlot = 0           // last handled beacon block slot
+	s.lastHandledState = nil        // last handled beacon state
+
 	return nil
 }
 

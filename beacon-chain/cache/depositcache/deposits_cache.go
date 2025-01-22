@@ -75,6 +75,26 @@ func New() (*DepositCache, error) {
 	}, nil
 }
 
+func (dc *DepositCache) Reset(ctx context.Context) error {
+	_, span := trace.StartSpan(ctx, "DepositsCache.InsertDeposit")
+	defer span.End()
+
+	dc.depositsLock.Lock()
+	defer dc.depositsLock.Unlock()
+
+	finalizedDepositsTrie, err := trie.NewTrie(params.BeaconConfig().DepositContractTreeDepth)
+	if err != nil {
+		log.WithError(err).Error("Deposit cache: reset failed")
+		return err
+	}
+	dc.pendingDeposits = []*ethpb.DepositContainer{}
+	dc.deposits = []*ethpb.DepositContainer{}
+	dc.depositsByKey = map[[fieldparams.BLSPubkeyLength]byte][]*ethpb.DepositContainer{}
+	dc.finalizedDeposits = &FinalizedDeposits{Deposits: finalizedDepositsTrie, MerkleTrieIndex: -1}
+	log.Info("Deposit cache: reset")
+	return nil
+}
+
 // InsertDeposit into the database. If deposit or block number are nil
 // then this method does nothing.
 func (dc *DepositCache) InsertDeposit(ctx context.Context, d *ethpb.Deposit, blockNum uint64, index int64, depositRoot [32]byte) error {
