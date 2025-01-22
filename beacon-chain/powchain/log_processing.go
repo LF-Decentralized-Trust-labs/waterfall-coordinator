@@ -106,6 +106,12 @@ func (s *Service) ProcessLog(ctx context.Context, depositLog gwatTypes.Log) erro
 		}
 		return nil
 	}
+	if depositLog.Topics[0] == gwatValLog.EvtUpdateBalanceLogSignature {
+		if err := s.ProcessUpdateBalanceLog(ctx, depositLog); err != nil {
+			return errors.Wrap(err, "Could not process update balance log")
+		}
+		return nil
+	}
 	log.WithField("signature", fmt.Sprintf("%#x", depositLog.Topics[0])).Debug("Not a valid event signature")
 	return nil
 }
@@ -141,6 +147,29 @@ func (s *Service) ProcessWithdrawalLog(ctx context.Context, wtdLog gwatTypes.Log
 		Epoch:          curEpoch + 2, // min 1 epoch to propagate op by network
 	}
 	s.cfg.withdrawalPool.InsertWithdrawal(ctx, withdrawal)
+	return nil
+}
+
+func (s *Service) ProcessUpdateBalanceLog(ctx context.Context, upBalLog gwatTypes.Log) error {
+	initTxHash, creatorAddress, procEpoch, amount, err := gwatValLog.UnpackUpdateBalanceLogData(upBalLog.Data)
+
+	if err != nil {
+		log.WithError(err).WithFields(logrus.Fields{
+			"opTxHash": fmt.Sprintf("%#x", upBalLog.TxHash),
+		}).Error("Processing update balance log failed")
+		return errors.Wrap(err, "Could not unpack log (update balance)")
+	}
+
+	isRemoved := s.cfg.withdrawalPool.RemoveItem(initTxHash[:])
+	log.WithFields(logrus.Fields{
+		" initTxHash": fmt.Sprintf("%#x", initTxHash),
+		" isRemoved":  isRemoved,
+		"amount":      amount,
+		"creatorAddr": fmt.Sprintf("%#x", creatorAddress),
+		"procEpoch":   procEpoch,
+		"opTxHash":    fmt.Sprintf("%#x", upBalLog.TxHash),
+	}).Info("Processing update balance log")
+
 	return nil
 }
 

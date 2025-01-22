@@ -42,6 +42,8 @@ type PoolManager interface {
 	OnSlot(st state.ReadOnlyBeaconState)
 	Verify(withdrawal *ethpb.Withdrawal) error
 	CopyItems() []*ethpb.Withdrawal
+	RemoveItem(initTxHash []byte) bool
+	Reset()
 }
 
 // Pool is a concrete implementation of PoolManager.
@@ -327,4 +329,28 @@ func (p *Pool) CopyItems() []*ethpb.Withdrawal {
 		}
 	}
 	return result
+}
+
+func (p *Pool) RemoveItem(initTxHash []byte) bool {
+	p.lock.Lock()
+	defer p.lock.Unlock()
+
+	var res bool
+	// remove item by initTx
+	pending := make([]*ethpb.Withdrawal, 0, len(p.pending))
+	for _, itm := range p.pending {
+		if bytes.Equal(itm.InitTxHash, initTxHash) {
+			res = true
+			continue
+		}
+		pending = append(pending, itm)
+	}
+	p.pending = pending
+	return res
+}
+
+func (p *Pool) Reset() {
+	p.lock.Lock()
+	defer p.lock.Unlock()
+	p.pending = make([]*ethpb.Withdrawal, 0)
 }
