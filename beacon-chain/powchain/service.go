@@ -34,6 +34,7 @@ import (
 	"gitlab.waterfall.network/waterfall/protocol/coordinator/config/params"
 	"gitlab.waterfall.network/waterfall/protocol/coordinator/container/trie"
 	"gitlab.waterfall.network/waterfall/protocol/coordinator/encoding/bytesutil"
+	mathutil "gitlab.waterfall.network/waterfall/protocol/coordinator/math"
 	"gitlab.waterfall.network/waterfall/protocol/coordinator/monitoring/clientstats"
 	"gitlab.waterfall.network/waterfall/protocol/coordinator/network"
 	ethpbv1 "gitlab.waterfall.network/waterfall/protocol/coordinator/proto/eth/v1"
@@ -395,8 +396,14 @@ func (s *Service) StateTracker() {
 					continue
 				}
 
-				// if the first event recieved - reinit required props
 				isResetEth1Data := false
+				err = s.verifyFinalizedDeposits(st)
+				if err != nil {
+					// init all log processing from genesis
+					isBadDepositRoot = true
+					s.lastHandledState = nil
+				}
+				// if the first event recieved - reinit required props
 				if s.lastHandledState == nil {
 					//check gwat connection is established
 					if s.eth1DataFetcher == nil {
@@ -489,6 +496,52 @@ func (s *Service) StateTracker() {
 			}
 		}
 	}
+}
+
+func (s *Service) verifyFinalizedDeposits(finState state.BeaconState) error {
+	finDeps := s.cfg.depositCache.FinalizedDeposits(s.ctx)
+	trieIndex := finDeps.MerkleTrieIndex
+	if trieIndex < 0 {
+		return nil
+	}
+	stDepRoot := finState.Eth1Data().DepositRoot
+	stDepCount := finState.Eth1Data().DepositCount
+	iStDepCount, err := mathutil.Int64(stDepCount)
+	if err != nil {
+		return err
+	}
+	if trieIndex > iStDepCount-1 {
+		trieIndex = iStDepCount - 1
+	}
+	lastFinDepRoot := finDeps.Deposits.Items()[trieIndex]
+	finProf, err := finDeps.Deposits.MerkleProof(int(trieIndex))
+	if err != nil {
+		return err
+	}
+
+	ok := trie.VerifyMerkleProofWithDepth(
+		stDepRoot,
+		lastFinDepRoot,
+		uint64(trieIndex),
+		finProf,
+		params.BeaconConfig().DepositContractTreeDepth,
+	)
+	if !ok {
+		err = fmt.Errorf(
+			"deposit merkle branch of deposit root did not verify for root: %#x index: %d",
+			lastFinDepRoot,
+			trieIndex,
+		)
+	}
+	log.WithError(err).WithFields(logrus.Fields{
+		"  ok":            ok,
+		" trieIndex":      trieIndex,
+		" stDepCount":     stDepCount,
+		" stDepRoot":      fmt.Sprintf("%#x", stDepRoot),
+		"lastFinDepRoot":  fmt.Sprintf("%#x", lastFinDepRoot),
+		"MerkleTrieIndex": finDeps.MerkleTrieIndex,
+	}).Info("=== LogProcessing: StateTracker: EVT: FinalizedCheckpoint: check deposit root")
+	return err
 }
 
 func (s *Service) initStateTrackerWorkMode(data *ethpbv1.EventFinalizedCheckpoint, st state.BeaconState, isBadDepositRoot bool) error {

@@ -144,6 +144,15 @@ func Int(u uint64) (int, error) {
 	return int(u), nil // lint:ignore uintcast -- This is the preferred method of casting uint64 to int.
 }
 
+// Int64 returns the int64 value of the uint64 argument. If there is an overlow, then an error is
+// returned.
+func Int64(u uint64) (int64, error) {
+	if u > stdmath.MaxInt64 {
+		return 0, ErrOverflow
+	}
+	return int64(u), nil // lint:ignore uintcast -- This is the preferred method of casting uint64 to int.
+}
+
 // AddInt adds two or more integers and checks for integer overflows.
 func AddInt(i ...int) (int, error) {
 	var sum int
