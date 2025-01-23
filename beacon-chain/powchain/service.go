@@ -789,6 +789,9 @@ func (s *Service) processBlockHeader(header *gwatTypes.Header, hash *gwatCommon.
 		"blockNumber": s.latestEth1Data.BlockHeight,
 		"blockHash":   fmt.Sprintf("%#x", s.latestEth1Data.BlockHash),
 	}).Info("Latest shard1 chain event")
+	if err := s.headerCache.AddHeader(header); err != nil {
+		return
+	}
 }
 
 // batchRequestHeaders requests the block range specified in the arguments. Instead of requesting
