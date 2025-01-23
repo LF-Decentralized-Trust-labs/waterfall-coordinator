@@ -1,6 +1,6 @@
 # eth1voting
 
-This tool can be used to query a Prysm node to print eth1voting information.
+This tool can be used to query a coordinator node to print eth1voting information.
 
 Flags:
 ```

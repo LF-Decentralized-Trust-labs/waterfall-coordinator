@@ -1,5 +1,5 @@
-// Package blockchain defines the life-cycle of the blockchain at the core of
-// Ethereum, including processing of new blocks and attestations using proof of stake.
+// Package blockchain defines the life-cycle of the blockchain,
+// including processing of new blocks and attestations using proof of stake.
 package blockchain
 
 import (
@@ -214,10 +214,12 @@ func (s *Service) isSynchronizing() bool {
 	return s.fnIsSync()
 }
 
+// IsSynced returns true if node of coordinator is synchronized otherwise - false.
 func (s *Service) IsSynced() bool {
 	return !s.isSynchronizing()
 }
 
+// IsGwatSynchronizing returns true if shard-node is not synchronized otherwise - false.
 func (s *Service) IsGwatSynchronizing() bool {
 	return s.isGwatSyncing.IsSet()
 }

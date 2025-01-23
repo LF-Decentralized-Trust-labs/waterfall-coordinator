@@ -1,4 +1,4 @@
-// Prometheus exporter for Ethereum address balances.
+// Prometheus exporter for address balances.
 // Forked from https://github.com/hunterlong/ethexporter
 package main
 

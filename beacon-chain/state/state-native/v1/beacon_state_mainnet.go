@@ -15,7 +15,7 @@ import (
 	ethpb "gitlab.waterfall.network/waterfall/protocol/coordinator/proto/prysm/v1alpha1"
 )
 
-// BeaconState defines a struct containing utilities for the Ethereum Beacon Chain state, defining
+// BeaconState defines a struct containing utilities for the Beacon Chain state, defining
 // getters and setters for its respective values and helpful functions such as HashTreeRoot().
 type BeaconState struct {
 	genesisTime                 uint64                      `ssz-gen:"true"`

@@ -1,3 +1,6 @@
+/*
+Package implemets util to verify deposit data.
+*/
 package utils
 
 import (

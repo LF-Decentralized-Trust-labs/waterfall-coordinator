@@ -19,6 +19,7 @@ import (
 	ethpb "gitlab.waterfall.network/waterfall/protocol/coordinator/proto/prysm/v1alpha1"
 )
 
+// Option defines options to initilize service.
 type Option func(s *Service) error
 
 // WithMaxGoroutines to control resource use of the blockchain service.

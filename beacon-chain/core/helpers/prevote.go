@@ -25,6 +25,8 @@ func ComputeSubnetForPrevote(activeValCount uint64, prevote *ethpb.PreVote) uint
 	return ComputeSubnetPrevotingBySlot(activeValCount, prevote.Data.Slot)
 }
 
+// IsAggregatedPrevote returns true if the PreVote instance is an aggregated,
+// false otherwise.
 func IsAggregatedPrevote(prevote *ethpb.PreVote) bool {
 	return prevote.AggregationBits.Count() > 1
 }

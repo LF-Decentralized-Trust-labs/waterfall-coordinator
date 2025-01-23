@@ -641,6 +641,8 @@ func (s *Service) onBlockBatch(ctx context.Context, blks []block.SignedBeaconBlo
 	return fCheckpoints, jCheckpoints, nil
 }
 
+// BatchHandlerBlockInfoFetcherFunc provides access to blocks info
+// including stored in db over context for state transition while initial-sync.
 func BatchHandlerBlockInfoFetcherFunc(dbRo db.ReadOnlyDatabase, blks []block.SignedBeaconBlock, blockRoots [][32]byte) params.CtxBlockFetcher {
 	return func(ctx context.Context, blockRoot [32]byte) (types.ValidatorIndex, types.Slot, uint64, error) {
 		var blk block.SignedBeaconBlock

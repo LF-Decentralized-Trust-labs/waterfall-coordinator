@@ -45,7 +45,7 @@ var casesHandled = map[string]bool{
 	SyncCommitteeContributionTopic: true,
 }
 
-// StreamEvents allows requesting all events from a set of topics defined in the Ethereum consensus API standard.
+// StreamEvents allows requesting all events from a set of topics defined in the consensus API standard.
 // The topics supported include block events, attestations, chain reorgs, voluntary exits,
 // chain finality, and more.
 func (s *Server) StreamEvents(

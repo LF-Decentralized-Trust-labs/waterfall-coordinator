@@ -1,12 +1,10 @@
-/**
- * Fork choice checker
- *
- * A gRPC client that polls beacon node at every slot to log or compare nodes current head.
- *
- * Example: 2 beacon nodes with 2 gRPC end points, 127.0.0.1:4000 and 127.0.0.1:4001
- * For logging heads: forkchecker --endpoint 127.0.0.1:4000 --endpoint 127.0.0.1:4001
- * For comparing heads: forkchecker --endpoint 127.0.0.1:4000 --endpoint 127.0.0.1:4001 --compare
- */
+/*
+Fork choice checker: A gRPC client that polls beacon node at every slot to log or compare nodes current head.
+
+Example: 2 beacon nodes with 2 gRPC end points, 127.0.0.1:4000 and 127.0.0.1:4001
+For logging heads: forkchecker --endpoint 127.0.0.1:4000 --endpoint 127.0.0.1:4001
+For comparing heads: forkchecker --endpoint 127.0.0.1:4000 --endpoint 127.0.0.1:4001 --compare
+*/
 package main
 
 import (
