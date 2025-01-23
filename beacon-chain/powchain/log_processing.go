@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"math/big"
-	"strings"
 	"time"
 
 	"github.com/pkg/errors"
@@ -16,6 +15,7 @@ import (
 	coreState "gitlab.waterfall.network/waterfall/protocol/coordinator/beacon-chain/core/transition"
 	v1 "gitlab.waterfall.network/waterfall/protocol/coordinator/beacon-chain/state/v1"
 	"gitlab.waterfall.network/waterfall/protocol/coordinator/config/params"
+	"gitlab.waterfall.network/waterfall/protocol/coordinator/container/trie"
 	"gitlab.waterfall.network/waterfall/protocol/coordinator/encoding/bytesutil"
 	ethpb "gitlab.waterfall.network/waterfall/protocol/coordinator/proto/prysm/v1alpha1"
 	"gitlab.waterfall.network/waterfall/protocol/coordinator/time/slots"
@@ -627,15 +627,7 @@ func (s *Service) requestBatchedHeadersAndLogs(ctx context.Context) error {
 	if requestedBlock > s.latestEth1Data.LastRequestedBlock &&
 		requestedBlock-s.latestEth1Data.LastRequestedBlock > maxTolerableDifference {
 		log.Infof("Falling back to historical headers and logs sync. Current difference is %d", requestedBlock-s.latestEth1Data.LastRequestedBlock)
-		if err := s.processPastLogs(ctx); err != nil {
-			if strings.Contains(err.Error(), errIncorrectMerkleIndex) {
-				log.WithError(err).Warning("=== LogProcessing: requestBatchedHeadersAndLogs: attempt to fix deposits cache 1")
-				s.setLastRequestedBlockByDepositCache()
-				return s.processPastLogs(ctx)
-			}
-			return err
-		}
-		return nil
+		return s.processPastLogs(ctx)
 	}
 	for i := s.latestEth1Data.LastRequestedBlock + 1; i <= requestedBlock; i++ {
 		// Cache eth1 block header here.
@@ -645,11 +637,6 @@ func (s *Service) requestBatchedHeadersAndLogs(ctx context.Context) error {
 		}
 		err = s.ProcessETH1Block(ctx, i)
 		if err != nil {
-			if strings.Contains(err.Error(), errIncorrectMerkleIndex) {
-				log.WithError(err).Warning("=== LogProcessing: requestBatchedHeadersAndLogs: attempt to fix deposits cache 2")
-				s.setLastRequestedBlockByDepositCache()
-				return s.processPastLogs(ctx)
-			}
 			return err
 		}
 		s.latestEth1Data.LastRequestedBlock = i
@@ -817,6 +804,31 @@ func (s *Service) ProcessDepositBlock(deposit *ethpb.Deposit, depositIndex uint6
 	return nil
 }
 
+func verifyDeposit(depositRoot []byte, depositIndex uint64, deposit *ethpb.Deposit) error {
+	// Verify Merkle proof of deposit and deposit trie root.
+	if deposit == nil || deposit.Data == nil {
+		return errors.New("received nil deposit or nil deposit data")
+	}
+	leaf, err := deposit.Data.HashTreeRoot()
+	if err != nil {
+		return errors.Wrap(err, "could not tree hash deposit data")
+	}
+	if ok := trie.VerifyMerkleProofWithDepth(
+		depositRoot,
+		leaf[:],
+		depositIndex,
+		deposit.Proof,
+		params.BeaconConfig().DepositContractTreeDepth,
+	); !ok {
+		return fmt.Errorf(
+			"deposit merkle branch of deposit root did not verify for root: %#x index: %d",
+			depositRoot,
+			depositIndex,
+		)
+	}
+	return nil
+}
+
 // handleFinalizedDeposits collect and processes the deposits has been received with blocks.
 func (s *Service) handleFinalizedDeposits(cpRoot [32]byte) (int, error) {
 	headSt, err := s.cfg.stateGen.StateByRoot(s.ctx, cpRoot)
@@ -850,6 +862,14 @@ func (s *Service) handleFinalizedDeposits(cpRoot [32]byte) (int, error) {
 			deposits = append(deposits, dep)
 			currIndex--
 		}
+
+		log.WithFields(logrus.Fields{
+			"deposits":  len(bBlock.Block().Body().Deposits()),
+			"blSlot":    bBlock.Block().Slot(),
+			"lastIndex": lastDepositIndex,
+			"currIndex": currIndex,
+		}).Warn("=== LogProcessing: handleFinalizedDeposits")
+
 		if lastDepositIndex >= currIndex {
 			break
 		}
@@ -871,20 +891,4 @@ func (s *Service) handleFinalizedDeposits(cpRoot [32]byte) (int, error) {
 		offset++
 	}
 	return offset, nil
-}
-
-func (s *Service) setLastRequestedBlockByDepositCache() {
-	blknr, ok := s.cfg.depositCache.GetBlockNrByDepositIndex(s.ctx, s.lastReceivedMerkleIndex)
-	if !ok {
-		log.WithFields(logrus.Fields{
-			" blknr":                  blknr,
-			"lastReceivedMerkleIndex": fmt.Sprintf("%d", s.lastReceivedMerkleIndex),
-		}).Error("=== LogProcessing: StateTracker: EVT: FinalizedCheckpoint: set LastRequestedBlock failed")
-		return
-	}
-	log.WithFields(logrus.Fields{
-		" blknr":                  blknr,
-		"lastReceivedMerkleIndex": fmt.Sprintf("%d", s.lastReceivedMerkleIndex),
-	}).Info("=== LogProcessing: StateTracker: EVT: FinalizedCheckpoint: set LastRequestedBlock")
-	s.latestEth1Data.LastRequestedBlock = blknr
 }

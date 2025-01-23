@@ -5,7 +5,6 @@ import (
 	"fmt"
 
 	"github.com/pkg/errors"
-	"github.com/sirupsen/logrus"
 	"gitlab.waterfall.network/waterfall/protocol/coordinator/beacon-chain/core/helpers"
 	"gitlab.waterfall.network/waterfall/protocol/coordinator/beacon-chain/core/signing"
 	"gitlab.waterfall.network/waterfall/protocol/coordinator/beacon-chain/state"
@@ -229,18 +228,6 @@ func verifyDeposit(beaconState state.ReadOnlyBeaconState, deposit *ethpb.Deposit
 	if err != nil {
 		return errors.Wrap(err, "could not tree hash deposit data")
 	}
-
-	proofs := make([]string, len(deposit.Proof))
-	for i, proof := range deposit.Proof {
-		proofs[i] = fmt.Sprintf("%#x", proof)
-	}
-	log.WithFields(logrus.Fields{
-		" stEth1DepositIndex": beaconState.Eth1DepositIndex(),
-		//"receiptRoot":         fmt.Sprintf("%#x", receiptRoot),
-		//"leaf":                fmt.Sprintf("%#x", leaf),
-		//"TreeDepth":           params.BeaconConfig().DepositContractTreeDepth,
-		//"proofs":              proofs,
-	}).Info("DEPOSIT verify")
 
 	if ok := trie.VerifyMerkleProofWithDepth(
 		receiptRoot,

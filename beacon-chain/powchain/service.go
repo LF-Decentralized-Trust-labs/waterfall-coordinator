@@ -272,6 +272,8 @@ func (s *Service) StateTracker() {
 	chainEvtCh := make(chan *feed.Event, 0)
 	sub := s.cfg.stateNotifier.StateFeed().Subscribe(chainEvtCh)
 
+	isBadDepositRoot := false
+
 	defer sub.Unsubscribe()
 	for {
 		select {
@@ -290,12 +292,17 @@ func (s *Service) StateTracker() {
 				}
 
 				log.WithFields(logrus.Fields{
+					"isBadDepositRoot":          isBadDepositRoot,
 					"s.lastHandledSlot":         s.lastHandledSlot,
 					"s.lastReceivedMerkleIndex": s.lastReceivedMerkleIndex,
 					"isInitialSync":             data.InitialSync,
+					"Chainstarted":              s.chainStartData.Chainstarted,
 				}).Info("=== LogProcessing: StateTracker: EVT: BlockProcessed 000000000")
 
 				if !data.InitialSync {
+					continue
+				}
+				if isBadDepositRoot {
 					continue
 				}
 				s.lastHandledSlot = data.Slot
@@ -312,7 +319,7 @@ func (s *Service) StateTracker() {
 				log.WithFields(logrus.Fields{
 					"evtType":             ev.Type,
 					"ad.Slot":             data.Slot,
-					"bd.Deposites":        len(data.SignedBlock.Block().Body().Deposits()),
+					"bd.Deposits":         len(data.SignedBlock.Block().Body().Deposits()),
 					"st.Eth1DepositIndex": st.Eth1DepositIndex(),
 					"cd.Block":            fmt.Sprintf("%#x", data.BlockRoot),
 				}).Info("=== LogProcessing: StateTracker: EVT: BlockProcessed")
@@ -331,6 +338,15 @@ func (s *Service) StateTracker() {
 				}
 
 				for i, deposit := range data.SignedBlock.Block().Body().Deposits() {
+					err = verifyDeposit(st.Eth1Data().DepositRoot, baseDepIndex+uint64(i), deposit)
+					if err != nil {
+						log.WithError(err).WithFields(logrus.Fields{
+							"st.DepositRoot": fmt.Sprintf("%#x", st.Eth1Data().DepositRoot),
+							"ad.Slot":        data.Slot,
+						}).Error("=== LogProcessing: StateTracker: EVT: BlockProcessed: validate deposit")
+						isBadDepositRoot = true
+						continue
+					}
 					err = s.ProcessDepositBlock(deposit, baseDepIndex+uint64(i))
 					if err != nil {
 						log.WithError(err).WithField("evtType", "BlockProcessed").Fatal("Event handler: failed")
@@ -339,10 +355,10 @@ func (s *Service) StateTracker() {
 
 				baseSpine := helpers.GetTerminalFinalizedSpine(st)
 				log.WithFields(logrus.Fields{
-					"_baseSpine":   fmt.Sprintf("%#x", baseSpine),
-					"ad.Slot":      data.Slot,
-					"bd.Deposites": len(data.SignedBlock.Block().Body().Deposits()),
-					"cd.Block":     fmt.Sprintf("%#x", data.BlockRoot),
+					"_baseSpine":  fmt.Sprintf("%#x", baseSpine),
+					"ad.Slot":     data.Slot,
+					"bd.Deposits": len(data.SignedBlock.Block().Body().Deposits()),
+					"cd.Block":    fmt.Sprintf("%#x", data.BlockRoot),
 				}).Info("=== LogProcessing: StateTracker: EVT: BlockProcessed: baseSpine")
 			}
 
@@ -358,6 +374,7 @@ func (s *Service) StateTracker() {
 					"s.lastHandledSlot":         s.lastHandledSlot,
 					"s.lastReceivedMerkleIndex": s.lastReceivedMerkleIndex,
 					"IsDelegate":                params.BeaconConfig().IsDelegatingStakeSlot(s.lastHandledSlot),
+					"Chainstarted":              s.chainStartData.Chainstarted,
 				}).Info("=== LogProcessing: StateTracker: EVT: FinalizedCheckpoint 000000000")
 
 				// check delegating stake fork active
@@ -392,10 +409,11 @@ func (s *Service) StateTracker() {
 						continue
 					}
 
-					err = s.initStateTrackerWorkMode(data, st)
+					err = s.initStateTrackerWorkMode(data, st, isBadDepositRoot)
 					if err != nil {
 						continue
 					}
+					isBadDepositRoot = false
 					isResetEth1Data = true
 				}
 
@@ -473,14 +491,9 @@ func (s *Service) StateTracker() {
 	}
 }
 
-func (s *Service) isDepositRootInvalide() bool {
-	//todo check depositRoot implementation is required
-	log.Warn("=== LogProcessing: StateTracker: EVT: FinalizedCheckpoint: check depositRoot implementation is required")
-	return true
-}
-
-func (s *Service) initStateTrackerWorkMode(data *ethpbv1.EventFinalizedCheckpoint, st state.BeaconState) error {
-	if s.isDepositRootInvalide() {
+func (s *Service) initStateTrackerWorkMode(data *ethpbv1.EventFinalizedCheckpoint, st state.BeaconState, isBadDepositRoot bool) error {
+	if isBadDepositRoot {
+		log.Warn("=== LogProcessing: StateTracker: EVT: FinalizedCheckpoint: reset by bad deposit root")
 		// reset to recalculate all deposits
 		prevSt, err := s.cfg.beaconDB.GenesisState(s.ctx)
 		if err != nil {
@@ -548,7 +561,7 @@ func (s *Service) initStateTrackerWorkMode(data *ethpbv1.EventFinalizedCheckpoin
 	s.latestEth1Data.BlockTime = prevHeader.Time
 	s.latestEth1Data.CpHash = baseSpine.Bytes()
 	s.latestEth1Data.CpNr = prevHeader.Nr()
-	s.setLastRequestedBlockByDepositCache()
+	s.latestEth1Data.LastRequestedBlock = s.followBlockHeight(s.ctx)
 	return nil
 }
 
@@ -1119,7 +1132,7 @@ func (s *Service) resetEth1Data(ctx context.Context) error {
 	if err != nil {
 		return errors.Wrap(err, "could not reset deposit trie")
 	}
-	genState, err := transition.EmptyGenesisState()
+	genState, err := s.cfg.beaconDB.GenesisState(s.ctx)
 	if err != nil {
 		return errors.Wrap(err, "reset: could not reset genesis state")
 	}
@@ -1128,10 +1141,6 @@ func (s *Service) resetEth1Data(ctx context.Context) error {
 		return errors.Wrap(err, "reset: could not reset deposit trie")
 	}
 	s.depositTrie = depositTrie
-	s.chainStartData = &ethpb.ChainStartData{
-		Eth1Data:           &ethpb.Eth1Data{},
-		ChainstartDeposits: make([]*ethpb.Deposit, 0),
-	}
 	s.preGenesisState = genState
 	s.latestEth1Data = &ethpb.LatestETH1Data{
 		BlockHeight:        0,

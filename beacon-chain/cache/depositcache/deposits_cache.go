@@ -348,21 +348,3 @@ func (dc *DepositCache) PruneProofs(ctx context.Context, untilDepositIndex int64
 
 	return nil
 }
-
-func (dc *DepositCache) GetBlockNrByDepositIndex(ctx context.Context, depIndex int64) (uint64, bool) {
-	_, span := trace.StartSpan(ctx, "DepositsCache.GetBlockNrByDepositIndex")
-	defer span.End()
-	dc.depositsLock.RLock()
-	defer dc.depositsLock.RUnlock()
-
-	if depIndex == -1 {
-		return 0, true
-	}
-
-	for _, ctnr := range dc.deposits {
-		if ctnr.Index == depIndex {
-			return ctnr.Eth1BlockHeight, true
-		}
-	}
-	return 0, false
-}
