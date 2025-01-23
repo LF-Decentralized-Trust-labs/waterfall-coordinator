@@ -233,33 +233,34 @@ func NewService(ctx context.Context, opts ...Option) (*Service, error) {
 		return nil, err
 	}
 
-	// load saved withdrawal pool
-	witdrawalPoolData, err := s.cfg.beaconDB.ReadWithdrawalPool(ctx)
-	if err != nil {
-		return nil, errors.Wrap(err, "unable to retrieve withdrawal pool data")
-	}
-	for _, op := range witdrawalPoolData {
-		log.WithFields(logrus.Fields{
-			" InitTxHash":     fmt.Sprintf("%#x", op.InitTxHash),
-			"Epoch":           fmt.Sprintf("%d", op.Epoch),
-			"Amount":          fmt.Sprintf("%d", op.Amount),
-			" ValidatorIndex": fmt.Sprintf("%d", op.ValidatorIndex),
-		}).Info("Witdrawal pool: load saved op")
-		s.cfg.withdrawalPool.InsertWithdrawal(ctx, op)
-	}
-	// load saved exit pool
-	exitPoolData, err := s.cfg.beaconDB.ReadExitPool(ctx)
-	if err != nil {
-		return nil, errors.Wrap(err, "unable to retrieve exit pool data")
-	}
-	for _, op := range exitPoolData {
-		log.WithFields(logrus.Fields{
-			" InitTxHash":     fmt.Sprintf("%#x", op.InitTxHash),
-			"Epoch":           fmt.Sprintf("%d", op.Epoch),
-			" ValidatorIndex": fmt.Sprintf("%d", op.ValidatorIndex),
-		}).Info("Exit pool: load saved op")
-		s.cfg.exitPool.InsertVoluntaryExitByGwat(ctx, op)
-	}
+	//// load saved withdrawal pool
+	//witdrawalPoolData, err := s.cfg.beaconDB.ReadWithdrawalPool(ctx)
+	//if err != nil {
+	//	return nil, errors.Wrap(err, "unable to retrieve withdrawal pool data")
+	//}
+	//for _, op := range witdrawalPoolData {
+	//	log.WithFields(logrus.Fields{
+	//		" InitTxHash":     fmt.Sprintf("%#x", op.InitTxHash),
+	//		"Epoch":           fmt.Sprintf("%d", op.Epoch),
+	//		"Amount":          fmt.Sprintf("%d", op.Amount),
+	//		" ValidatorIndex": fmt.Sprintf("%d", op.ValidatorIndex),
+	//	}).Info("Witdrawal pool: load saved op")
+	//	s.cfg.withdrawalPool.InsertWithdrawal(ctx, op)
+	//}
+
+	//// load saved exit pool
+	//exitPoolData, err := s.cfg.beaconDB.ReadExitPool(ctx)
+	//if err != nil {
+	//	return nil, errors.Wrap(err, "unable to retrieve exit pool data")
+	//}
+	//for _, op := range exitPoolData {
+	//	log.WithFields(logrus.Fields{
+	//		" InitTxHash":     fmt.Sprintf("%#x", op.InitTxHash),
+	//		"Epoch":           fmt.Sprintf("%d", op.Epoch),
+	//		" ValidatorIndex": fmt.Sprintf("%d", op.ValidatorIndex),
+	//	}).Info("Exit pool: load saved op")
+	//	s.cfg.exitPool.InsertVoluntaryExitByGwat(ctx, op)
+	//}
 
 	go s.StateTracker()
 
@@ -436,7 +437,7 @@ func (s *Service) StateTracker() {
 					s.latestEth1Data.BlockTime = prevHeader.Time
 					s.latestEth1Data.CpHash = baseSpine.Bytes()
 					s.latestEth1Data.CpNr = prevHeader.Nr()
-					s.latestEth1Data.LastRequestedBlock = s.followBlockHeight(s.ctx)
+					s.setLastRequestedBlockByDepositCache()
 				}
 
 				baseSpine := helpers.GetTerminalFinalizedSpine(st)
@@ -481,13 +482,14 @@ func (s *Service) StateTracker() {
 				s.handleETH1FollowDistance()
 				s.checkDefaultEndpoint(s.ctx)
 
-				err = s.cfg.beaconDB.WriteWithdrawalPool(s.ctx, s.cfg.withdrawalPool.CopyItems())
-				if err != nil {
-					log.WithError(err).WithFields(logrus.Fields{
-						"poolItms": len(s.cfg.withdrawalPool.CopyItems()),
-						"st.Slot":  st.Slot(),
-					}).Error("=== LogProcessing: StateTracker: EVT: FinalizedCheckpoint: save withdrawal pool failed")
-				}
+				//err = s.cfg.beaconDB.WriteWithdrawalPool(s.ctx, s.cfg.withdrawalPool.CopyItems())
+				//if err != nil {
+				//	log.WithError(err).WithFields(logrus.Fields{
+				//		"poolItms": len(s.cfg.withdrawalPool.CopyItems()),
+				//		"st.Slot":  st.Slot(),
+				//	}).Error("=== LogProcessing: StateTracker: EVT: FinalizedCheckpoint: save withdrawal pool failed")
+				//}
+
 				err = s.cfg.beaconDB.WriteExitPool(s.ctx, s.cfg.exitPool.CopyItems())
 				if err != nil {
 					log.WithError(err).WithFields(logrus.Fields{
