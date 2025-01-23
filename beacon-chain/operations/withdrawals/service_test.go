@@ -266,12 +266,12 @@ func TestPool_InsertWithdrawal(t *testing.T) {
 		},
 	}
 	ctx := context.Background()
-	for _, tt := range tests {
+	for i, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			p := &Pool{
 				pending: tt.fields.pending,
 			}
-			p.InsertWithdrawal(ctx, tt.args.withdrawal)
+			p.InsertWithdrawal(ctx, tt.args.withdrawal, uint64(i))
 			if len(p.pending) != len(tt.want) {
 				t.Fatalf("Mismatched lengths of pending list. Got %d, wanted %d.", len(p.pending), len(tt.want))
 			}

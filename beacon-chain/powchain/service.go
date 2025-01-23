@@ -379,6 +379,7 @@ func (s *Service) StateTracker() {
 				}
 
 				// if the first event recieved - reinit required props
+				isResetEth1Data := false
 				if s.lastHandledState == nil {
 					//check gwat connection is established
 					if s.eth1DataFetcher == nil {
@@ -395,6 +396,7 @@ func (s *Service) StateTracker() {
 					if err != nil {
 						continue
 					}
+					isResetEth1Data = true
 				}
 
 				baseSpine := helpers.GetTerminalFinalizedSpine(st)
@@ -437,6 +439,14 @@ func (s *Service) StateTracker() {
 				}
 				s.processBlockHeader(header, &baseSpine)
 				s.handleETH1FollowDistance()
+				if isResetEth1Data {
+					err = s.rmOutdatedWithdrawalsFromPool()
+					if err != nil {
+						// reset to retry next iteration
+						s.cfg.withdrawalPool.Reset()
+						s.lastHandledState = nil
+					}
+				}
 				s.checkDefaultEndpoint(s.ctx)
 
 				//err = s.cfg.beaconDB.WriteWithdrawalPool(s.ctx, s.cfg.withdrawalPool.CopyItems())
@@ -1133,10 +1143,6 @@ func (s *Service) resetEth1Data(ctx context.Context) error {
 	}
 	numOfItems := s.depositTrie.NumOfItems()
 	s.lastReceivedMerkleIndex = int64(numOfItems - 1)
-
-	s.lastHandledBlock = [32]byte{} // last handled beacon block root
-	s.lastHandledSlot = 0           // last handled beacon block slot
-	s.lastHandledState = nil        // last handled beacon state
 
 	return nil
 }

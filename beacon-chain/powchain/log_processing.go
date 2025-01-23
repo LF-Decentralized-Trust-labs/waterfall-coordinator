@@ -146,7 +146,7 @@ func (s *Service) ProcessWithdrawalLog(ctx context.Context, wtdLog gwatTypes.Log
 		Amount:         amtGwei,
 		Epoch:          curEpoch + 2, // min 1 epoch to propagate op by network
 	}
-	s.cfg.withdrawalPool.InsertWithdrawal(ctx, withdrawal)
+	s.cfg.withdrawalPool.InsertWithdrawal(ctx, withdrawal, wtdLog.BlockNumber)
 	return nil
 }
 
@@ -170,6 +170,72 @@ func (s *Service) ProcessUpdateBalanceLog(ctx context.Context, upBalLog gwatType
 		"opTxHash":    fmt.Sprintf("%#x", upBalLog.TxHash),
 	}).Info("Processing update balance log")
 
+	return nil
+}
+
+func (s *Service) rmOutdatedWithdrawalsFromPool() error {
+	curSlot := s.lastHandledSlot
+	if !params.BeaconConfig().IsDelegatingStakeSlot(s.lastHandledSlot) {
+		curSlot = slots.CurrentSlot(s.cfg.finalizedStateAtStartup.GenesisTime())
+	}
+	var minSlot types.Slot = 0
+	staleAfterSlots := types.Slot(params.BeaconConfig().CleanWithdrawalsAftEpochs) * params.BeaconConfig().SlotsPerEpoch
+	if curSlot > staleAfterSlots {
+		minSlot = curSlot - staleAfterSlots
+	}
+
+	poolItems := s.cfg.withdrawalPool.CopyItems()
+	log.WithFields(logrus.Fields{
+		"curSlot":         curSlot,
+		"poolItems":       len(poolItems),
+		"staleAfterSlots": staleAfterSlots,
+		"minSlot":         minSlot,
+	}).Info("Remove outdated withdrawals: start")
+
+	for _, itm := range poolItems {
+		blNr := s.cfg.withdrawalPool.GetBlockNr(itm.InitTxHash)
+		if blNr == 0 {
+			isRemoved := s.cfg.withdrawalPool.RemoveItem(itm.InitTxHash)
+			log.WithFields(logrus.Fields{
+				"blNr":        blNr,
+				" initTxHash": fmt.Sprintf("%#x", itm.InitTxHash),
+				" isRemoved":  isRemoved,
+				"valIndex":    itm.ValidatorIndex,
+			}).Warn("Remove outdated withdrawals: bad block nr")
+			continue
+		}
+		blHeight := new(big.Int).SetUint64(blNr)
+		blSlot, err := s.BlockSlotByHeight(s.ctx, blHeight)
+		if err != nil {
+			log.WithError(err).WithFields(logrus.Fields{
+				"blNr":        blNr,
+				" initTxHash": fmt.Sprintf("%#x", itm.InitTxHash),
+				" isRemoved":  false,
+				"valIndex":    itm.ValidatorIndex,
+			}).Error("Remove outdated withdrawals: failed to get block slot")
+			return errors.Wrap(err, "Could not get block slot")
+		}
+		if types.Slot(blSlot) > minSlot {
+			log.WithFields(logrus.Fields{
+				"blNr":        blNr,
+				"blSlot":      blSlot,
+				"minSlot":     minSlot,
+				" initTxHash": fmt.Sprintf("%#x", itm.InitTxHash),
+				" isRemoved":  false,
+				"valIndex":    itm.ValidatorIndex,
+			}).Info("Remove outdated withdrawals: item skipped")
+			continue
+		}
+		isRemoved := s.cfg.withdrawalPool.RemoveItem(itm.InitTxHash)
+		log.WithFields(logrus.Fields{
+			"blNr":        blNr,
+			"blSlot":      blSlot,
+			"minSlot":     minSlot,
+			" initTxHash": fmt.Sprintf("%#x", itm.InitTxHash),
+			" isRemoved":  isRemoved,
+			"valIndex":    itm.ValidatorIndex,
+		}).Info("Remove outdated withdrawals: item removed")
+	}
 	return nil
 }
 

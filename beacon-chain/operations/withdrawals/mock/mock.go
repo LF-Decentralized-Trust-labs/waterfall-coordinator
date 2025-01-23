@@ -38,7 +38,7 @@ func (m *PoolMock) PendingWithdrawals(_ state.ReadOnlyBeaconState, _ types.Slot,
 }
 
 // InsertWithdrawal --
-func (m *PoolMock) InsertWithdrawal(_ context.Context, withdrawal *eth.Withdrawal) {
+func (m *PoolMock) InsertWithdrawal(_ context.Context, withdrawal *eth.Withdrawal, blockNr uint64) {
 	m.Withdrawals = append(m.Withdrawals, withdrawal)
 }
 
