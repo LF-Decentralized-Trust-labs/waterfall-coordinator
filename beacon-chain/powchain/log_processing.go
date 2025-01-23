@@ -406,7 +406,7 @@ func (s *Service) processPastLogs(ctx context.Context) error {
 		//	BlockHash:        &spineHash,
 		//}
 	}
-	logCount, err := s.GetDepositCount(ctx, gdcParam)
+	depositCount, err := s.GetDepositCount(ctx, gdcParam)
 	if err != nil {
 		log.WithError(err).WithFields(logrus.Fields{
 			"gdcParam":             fmt.Sprintf("%v", gdcParam),
@@ -424,7 +424,7 @@ func (s *Service) processPastLogs(ctx context.Context) error {
 
 	log.WithFields(logrus.Fields{
 		"gdcParam":             fmt.Sprintf("%v", gdcParam),
-		"logCount":             logCount,
+		"depositCount":         depositCount,
 		"handleSlot":           s.lastHandledSlot,
 		"isDldFork":            params.BeaconConfig().IsDelegatingStakeSlot(s.lastHandledSlot),
 		"lastEth.CpHash":       fmt.Sprintf("%#x", s.latestEth1Data.CpHash),
@@ -434,31 +434,6 @@ func (s *Service) processPastLogs(ctx context.Context) error {
 		"Eth1FollowDistance":   params.BeaconConfig().Eth1FollowDistance,
 	}).Info("=== LogProcessing: processPastLogs")
 
-	// To store all blocks.
-	headersMap := make(map[uint64]*gwatTypes.Header)
-	// Batch request the desired headers and store them in a
-	// map for quick access.
-	requestHeaders := func(startBlk, endBlk uint64) error {
-		headers, err := s.batchRequestHeaders(startBlk, endBlk)
-		if err != nil {
-			return err
-		}
-		for i, h := range headers {
-			log.WithFields(logrus.Fields{
-				"i":                    i,
-				"lastEth.LastReqBlock": s.latestEth1Data.LastRequestedBlock,
-				"lastEth.CpNr":         s.latestEth1Data.CpNr,
-				"startBlk":             startBlk,
-				"endBlk":               endBlk,
-				"bl.Nr":                h.Nr(),
-				"bl.Slot":              h.Slot,
-			}).Info("=== LogProcessing: processPastLogs: requestHeaders: iter")
-			if h != nil && h.Number != nil {
-				headersMap[h.Nr()] = h
-			}
-		}
-		return nil
-	}
 	latestFollowHeight := s.followBlockHeight(ctx)
 
 	batchSize := s.cfg.eth1HeaderReqLimit
@@ -478,6 +453,7 @@ func (s *Service) processPastLogs(ctx context.Context) error {
 			"lastEth.CpNr":         s.latestEth1Data.CpNr,
 			"-startBlk":            start,
 			"-endBlk":              end,
+			"latestFollowHeight":   latestFollowHeight,
 		}).Info("=== LogProcessing: FilterQuery: processPastLogs: 11111")
 
 		query := gwat.FilterQuery{
@@ -489,7 +465,7 @@ func (s *Service) processPastLogs(ctx context.Context) error {
 			////handle deposit & exit only
 			//Topics: [][]gwatCommon.Hash{{gwatValLog.EvtDepositLogSignature, gwatValLog.EvtExitReqLogSignature}},
 		}
-		remainingLogs := logCount - uint64(s.lastReceivedMerkleIndex+1)
+		remainingLogs := depositCount - uint64(s.lastReceivedMerkleIndex+1)
 		// only change the end block if the remaining logs are below the required log limit.
 		// reset our query and end block in this case.
 		withinLimit := remainingLogs < depositlogRequestLimit
@@ -511,35 +487,8 @@ func (s *Service) processPastLogs(ctx context.Context) error {
 			}
 			return err
 		}
-		// Only request headers before chainstart to correctly determine
-		// genesis.
-		if !s.chainStartData.Chainstarted {
-
-			log.WithFields(logrus.Fields{
-				"lastEth.LastReqBlock": s.latestEth1Data.LastRequestedBlock,
-				"lastEth.CpNr":         s.latestEth1Data.CpNr,
-				"startBlk":             start,
-				"endBlk":               end,
-			}).Info("=== LogProcessing: processPastLogs: requestHeaders: 00000000")
-
-			if err := requestHeaders(start, end); err != nil {
-				return err
-			}
-		}
-
 		for _, filterLog := range logs {
 			if filterLog.BlockNumber > currentBlockNum {
-
-				log.WithFields(logrus.Fields{
-					"lastEth.LastReqBlock": s.latestEth1Data.LastRequestedBlock,
-					"lastEth.CpNr":         s.latestEth1Data.CpNr,
-					"startBlk":             currentBlockNum,
-					"endBlk":               filterLog.BlockNumber - 1,
-				}).Info("=== LogProcessing: processPastLogs: requestHeaders: 11111111")
-
-				if err := s.checkHeaderRange(ctx, currentBlockNum, filterLog.BlockNumber-1, headersMap, requestHeaders); err != nil {
-					return err
-				}
 				// set new block number after checking for chainstart for previous block.
 				s.latestEth1Data.LastRequestedBlock = currentBlockNum
 				currentBlockNum = filterLog.BlockNumber
@@ -549,16 +498,6 @@ func (s *Service) processPastLogs(ctx context.Context) error {
 			}
 		}
 
-		log.WithFields(logrus.Fields{
-			"lastEth.LastReqBlock": s.latestEth1Data.LastRequestedBlock,
-			"lastEth.CpNr":         s.latestEth1Data.CpNr,
-			"startBlk":             currentBlockNum,
-			"endBlk":               end,
-		}).Info("=== LogProcessing: processPastLogs: requestHeaders: 22222222")
-
-		if err := s.checkHeaderRange(ctx, currentBlockNum, end, headersMap, requestHeaders); err != nil {
-			return err
-		}
 		currentBlockNum = end
 
 		if batchSize < s.cfg.eth1HeaderReqLimit {
