@@ -4,6 +4,7 @@
 package powchain
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"math/big"
@@ -34,7 +35,6 @@ import (
 	"gitlab.waterfall.network/waterfall/protocol/coordinator/config/params"
 	"gitlab.waterfall.network/waterfall/protocol/coordinator/container/trie"
 	"gitlab.waterfall.network/waterfall/protocol/coordinator/encoding/bytesutil"
-	mathutil "gitlab.waterfall.network/waterfall/protocol/coordinator/math"
 	"gitlab.waterfall.network/waterfall/protocol/coordinator/monitoring/clientstats"
 	"gitlab.waterfall.network/waterfall/protocol/coordinator/network"
 	ethpbv1 "gitlab.waterfall.network/waterfall/protocol/coordinator/proto/eth/v1"
@@ -104,6 +104,8 @@ type POWBlockFetcher interface {
 	ExecutionDagGetCandidates(ctx context.Context, slot ethTypes.Slot) (gwatCommon.HashArray, error)
 	ExecutionDagFinalize(ctx context.Context, finParams *gwatTypes.FinalizationParams) (*gwatTypes.FinalizationResult, error)
 	ExecutionDagCoordinatedState(ctx context.Context) (*gwatTypes.FinalizationResult, error)
+
+	IsTxLogValid() bool
 }
 
 // Chain defines a standard interface for the powchain service in Prysm.
@@ -298,16 +300,26 @@ func (s *Service) StateTracker() {
 					"s.lastReceivedMerkleIndex": s.lastReceivedMerkleIndex,
 					"isBadDepositRoot":          isBadDepositRoot,
 					"isChainstarted":            s.chainStartData.Chainstarted,
-				}).Info("=== LogProcessing: StateTracker: EVT: BlockProcessed 000000000")
+				}).Info("=== LogProcessing: StateTracker: EvtBlockProcessed: 000")
 
-				if err := s.handlerBlockProcessedEvt(data, isBadDepositRoot); err != nil {
+				if err := s.mainSyncTxLogsByBlockEvt(data, isBadDepositRoot); err != nil {
 					if errors.Is(err, errInvalidDepositRoot) {
 						isBadDepositRoot = true
 					}
 					log.WithError(err).WithFields(logrus.Fields{
 						"errInvalidDepositRoot": errors.Is(err, errInvalidDepositRoot),
 						"isBadDepositRoot":      isBadDepositRoot,
-					}).Error("=== LogProcessing: StateTracker: EVT: BlockProcessed: error")
+					}).Error("=== LogProcessing: StateTracker: EvtBlockProcessed: error 1")
+					continue
+				}
+				if err := s.headSyncTxLogsByBlockEvt(data, isBadDepositRoot); err != nil {
+					if errors.Is(err, errInvalidDepositRoot) {
+						isBadDepositRoot = true
+					}
+					log.WithError(err).WithFields(logrus.Fields{
+						"errInvalidDepositRoot": errors.Is(err, errInvalidDepositRoot),
+						"isBadDepositRoot":      isBadDepositRoot,
+					}).Error("=== LogProcessing: StateTracker: EvtBlockProcessed: error 2")
 					continue
 				}
 			}
@@ -318,120 +330,36 @@ func (s *Service) StateTracker() {
 				if !ok {
 					continue
 				}
-				s.lastHandledSlot = data.FinalizationSlot
 
 				log.WithFields(logrus.Fields{
 					"s.lastHandledSlot":         s.lastHandledSlot,
+					"data.FinalizationSlot":     data.FinalizationSlot,
 					"s.lastReceivedMerkleIndex": s.lastReceivedMerkleIndex,
 					"IsDelegate":                params.BeaconConfig().IsDelegatingStakeSlot(s.lastHandledSlot),
 					"Chainstarted":              s.chainStartData.Chainstarted,
-				}).Info("=== LogProcessing: StateTracker: EVT: FinalizedCheckpoint 000000000")
+				}).Info("=== LogProcessing: StateTracker: EvtFinalizedCheckpoint: 0000")
 
-				// check delegating stake fork active
-				if !params.BeaconConfig().IsDelegatingStakeSlot(s.lastHandledSlot) {
-					if s.pollConnActive {
-						handledCount, err := s.handleFinalizedDeposits(bytesutil.ToBytes32(data.Block))
-						log.WithError(err).WithFields(logrus.Fields{
-							"cpBlock":      fmt.Sprintf("%#x", data.Block),
-							"handledCount": handledCount,
-						}).Info("=== LogProcessing: StateTracker: EVT: FinalizedCheckpoint: handle finalized deposits 000")
+				if err := s.handlerFinalizedCheckpointEvt(data); err != nil {
+					if errors.Is(err, errInvalidDepositRoot) {
+						isBadDepositRoot = true
 					}
-					continue
-				}
-
-				st, err := s.cfg.stateGen.StateByRoot(s.ctx, bytesutil.ToBytes32(data.Block))
-				if err != nil {
-					log.WithField("evtType", "FinalizedCheckpoint").Error("=== LogProcessing: Event handler: retrieve state failed")
-					continue
-				}
-
-				isResetEth1Data := false
-				err = s.verifyFinalizedDeposits(st)
-				if err != nil {
-					// init all log processing from genesis
-					isBadDepositRoot = true
 					s.lastHandledState = nil
-				}
-				// if the first event recieved - reinit required props
-				if s.lastHandledState == nil {
-					//check gwat connection is established
-					if s.eth1DataFetcher == nil {
-						log.WithField("evtType", "FinalizedCheckpoint").Error("=== LogProcessing: Event handler: no gwat connection")
-						handledCount, err := s.handleFinalizedDeposits(bytesutil.ToBytes32(data.Block))
-						log.WithError(err).WithFields(logrus.Fields{
-							"cpBlock":      fmt.Sprintf("%#x", data.Block),
-							"handledCount": handledCount,
-						}).Info("=== LogProcessing: StateTracker: EVT: FinalizedCheckpoint: handle finalized deposits 111")
-						continue
-					}
-
-					err = s.initStateTrackerWorkMode(data, st, isBadDepositRoot)
-					if err != nil {
-						continue
-					}
-					isBadDepositRoot = false
-					isResetEth1Data = true
-				}
-
-				baseSpine := helpers.GetTerminalFinalizedSpine(st)
-				log.WithFields(logrus.Fields{
-					"baseSpine":                   fmt.Sprintf("%#x", baseSpine),
-					"lState.DepositIndex":         fmt.Sprintf("%d", s.lastHandledState.Eth1DepositIndex()),
-					"lastReceivedMerkleIndex":     fmt.Sprintf("%d", s.lastReceivedMerkleIndex),
-					"ad.Epoch":                    data.Epoch,
-					"bd.Block":                    fmt.Sprintf("%#x", data.Block),
-					"cd.State":                    fmt.Sprintf("%#x", data.State),
-					"st.Slot":                     st.Slot(),
-					"st.FinalizedCheckpointEpoch": st.FinalizedCheckpointEpoch(),
-					"d.isOptimistic":              data.ExecutionOptimistic,
-				}).Info("=== LogProcessing: StateTracker: EVT: FinalizedCheckpoint")
-
-				header, err := s.eth1DataFetcher.HeaderByHash(s.ctx, baseSpine)
-				if err != nil {
 					log.WithError(err).WithFields(logrus.Fields{
-						"baseSpine": fmt.Sprintf("%#x", baseSpine),
-						"st.Slot":   st.Slot(),
-					}).Error("=== LogProcessing: StateTracker: EVT: FinalizedCheckpoint: Could not fetch latest shard1 header")
-
-					handledCount, err := s.handleFinalizedDeposits(bytesutil.ToBytes32(data.Block))
-					log.WithError(err).WithFields(logrus.Fields{
-						"cpBlock":      fmt.Sprintf("%#x", data.Block),
-						"handledCount": handledCount,
-					}).Info("=== LogProcessing: StateTracker: EVT: FinalizedCheckpoint: handle finalized deposits 444")
-
-					if !s.pollConnActive {
-						// check gwat connection
-						head, err := s.eth1DataFetcher.HeaderByNumber(s.ctx, nil)
-						log.WithError(err).WithFields(logrus.Fields{
-							"head": fmt.Sprintf("%v", head),
-						}).Info("=== LogProcessing: pollConnActive: 222")
-						if err != nil {
-							go s.pollConnectionStatus(s.ctx)
-						}
-					}
+						"errInvalidDepositRoot": errors.Is(err, errInvalidDepositRoot),
+						"isBadDepositRoot":      isBadDepositRoot,
+					}).Error("=== LogProcessing: StateTracker: EvtFinalizedCheckpoint: error")
 					continue
 				}
-				s.processBlockHeader(header, &baseSpine)
-				s.handleETH1FollowDistance()
-				if isResetEth1Data {
-					err = s.rmOutdatedWithdrawalsFromPool()
-					if err != nil {
-						// reset to retry next iteration
-						s.cfg.withdrawalPool.Reset()
-						s.lastHandledState = nil
-					}
-				}
-				s.checkDefaultEndpoint(s.ctx)
-
-				s.lastHandledBlock = bytesutil.ToBytes32(data.Block)
-				//s.lastHandledSlot = st.Slot()
-				s.lastHandledState = st
 			}
 		}
 	}
 }
 
-func (s *Service) handlerBlockProcessedEvt(data *statefeed.BlockProcessedData, isBadDepositRoot bool) error {
+func (s *Service) IsTxLogValid() bool {
+	return s.lastHandledState != nil
+}
+
+func (s *Service) mainSyncTxLogsByBlockEvt(data *statefeed.BlockProcessedData, isBadDepositRoot bool) error {
 	if !data.InitialSync {
 		return nil
 	}
@@ -450,18 +378,19 @@ func (s *Service) handlerBlockProcessedEvt(data *statefeed.BlockProcessedData, i
 			" slot":    data.Slot,
 			"deposits": len(data.SignedBlock.Block().Body().Deposits()),
 			"block":    fmt.Sprintf("%#x", data.BlockRoot),
-		}).Error("=== LogProcessing: StateTracker: EVT: BlockProcessed: get state failed")
+		}).Error("=== LogProcessing: StateTracker: main sync: get state failed")
 		return nil
 	}
 
 	log.WithFields(logrus.Fields{
-		" Slot":        data.Slot,
+		" slot":        data.Slot,
 		"deposits":     len(data.SignedBlock.Block().Body().Deposits()),
 		"depositIndex": st.Eth1DepositIndex(),
+		"depositCount": st.Eth1Data().DepositCount,
 		"block":        fmt.Sprintf("%#x", data.BlockRoot),
-	}).Info("=== LogProcessing: StateTracker: EVT: BlockProcessed")
+	}).Info("=== LogProcessing: StateTracker: main sync: run")
 
-	baseDepIndex := st.Eth1DepositIndex() - uint64(depLen)
+	baseDepIndex := st.Eth1Data().DepositCount - uint64(depLen)
 	if s.lastReceivedMerkleIndex+1 < new(big.Int).SetUint64(baseDepIndex).Int64() {
 		handledCount, err := s.handleFinalizedDeposits(bytesutil.ToBytes32(data.SignedBlock.Block().ParentRoot()))
 		if err != nil {
@@ -470,7 +399,7 @@ func (s *Service) handlerBlockProcessedEvt(data *statefeed.BlockProcessedData, i
 				"deposits":     len(data.SignedBlock.Block().Body().Deposits()),
 				"block":        fmt.Sprintf("%#x", data.BlockRoot),
 				"handledCount": handledCount,
-			}).Error("=== LogProcessing: StateTracker: EVT: BlockProcessed: rebuild merkle trie failed")
+			}).Error("=== LogProcessing: StateTracker: main sync: rebuild merkle trie failed")
 			return fmt.Errorf("%w: %w", errInvalidDepositRoot, err)
 		}
 	}
@@ -482,76 +411,63 @@ func (s *Service) handlerBlockProcessedEvt(data *statefeed.BlockProcessedData, i
 				" slot":    data.Slot,
 				"deposits": len(data.SignedBlock.Block().Body().Deposits()),
 				"block":    fmt.Sprintf("%#x", data.BlockRoot),
-			}).Error("=== LogProcessing: StateTracker: EVT: BlockProcessed: process deposit failed")
+			}).Error("=== LogProcessing: StateTracker: main sync: process deposit failed")
 			return fmt.Errorf("%w: %w", errInvalidDepositRoot, err)
 		}
 	}
 
 	baseSpine := helpers.GetTerminalFinalizedSpine(st)
 	log.WithFields(logrus.Fields{
-		"baseSpine": fmt.Sprintf("%#x", baseSpine),
 		" slot":     data.Slot,
+		"baseSpine": fmt.Sprintf("%#x", baseSpine),
 		"deposits":  len(data.SignedBlock.Block().Body().Deposits()),
 		"block":     fmt.Sprintf("%#x", data.BlockRoot),
-	}).Info("=== LogProcessing: StateTracker: EVT: BlockProcessed: baseSpine")
+	}).Info("=== LogProcessing: StateTracker: main sync: baseSpine")
 
 	return nil
 }
 
-func (s *Service) verifyFinalizedDeposits(finState state.BeaconState) error {
-	finDeps := s.cfg.depositCache.FinalizedDeposits(s.ctx)
-	trieIndex := finDeps.MerkleTrieIndex
-	if trieIndex < 0 {
+func (s *Service) headSyncTxLogsByBlockEvt(data *statefeed.BlockProcessedData, isBadDepositRoot bool) error {
+	if data.InitialSync {
 		return nil
 	}
-	stDepRoot := finState.Eth1Data().DepositRoot
-	stDepCount := finState.Eth1Data().DepositCount
-	iStDepCount, err := mathutil.Int64(stDepCount)
-	if err != nil {
-		return err
+	// if the first event recieved - reinit required props
+	if s.lastHandledState != nil {
+		return nil
 	}
-	if trieIndex > iStDepCount-1 {
-		trieIndex = iStDepCount - 1
+	//check gwat connection is established
+	if s.eth1DataFetcher == nil {
+		return nil
 	}
-	lastFinDepRoot := finDeps.Deposits.Items()[trieIndex]
-	finProf, err := finDeps.Deposits.MerkleProof(int(trieIndex))
+
+	evtSt, err := s.cfg.stateGen.StateByRoot(s.ctx, data.BlockRoot)
 	if err != nil {
+		log.WithError(err).WithFields(logrus.Fields{
+			" slot": data.Slot,
+			"block": fmt.Sprintf("%#x", data.BlockRoot),
+		}).Error("=== LogProcessing: StateTracker: head sync: get state failed")
+		return nil
+	}
+	evtFcpRoot := bytesutil.ToBytes32(evtSt.FinalizedCheckpoint().Root)
+	cpSt, err := s.cfg.stateGen.StateByRoot(s.ctx, evtFcpRoot)
+	if err != nil {
+		log.WithError(err).WithFields(logrus.Fields{
+			" slot":            data.Slot,
+			"block":            fmt.Sprintf("%#x", data.BlockRoot),
+			"cpRoot":           fmt.Sprintf("%#x", evtFcpRoot),
+			"isBadDepositRoot": isBadDepositRoot,
+		}).Error("=== LogProcessing: StateTracker: head sync: get cp state failed")
 		return err
 	}
 
-	ok := trie.VerifyMerkleProofWithDepth(
-		stDepRoot,
-		lastFinDepRoot,
-		uint64(trieIndex),
-		finProf,
-		params.BeaconConfig().DepositContractTreeDepth,
-	)
-	if !ok {
-		err = fmt.Errorf(
-			"deposit merkle branch of deposit root did not verify for root: %#x index: %d",
-			lastFinDepRoot,
-			trieIndex,
-		)
-	}
-	log.WithError(err).WithFields(logrus.Fields{
-		"  ok":            ok,
-		" trieIndex":      trieIndex,
-		" stDepCount":     stDepCount,
-		" stDepRoot":      fmt.Sprintf("%#x", stDepRoot),
-		"finProfs":        len(finProf),
-		"lastFinDepRoot":  fmt.Sprintf("%#x", lastFinDepRoot),
-		"MerkleTrieIndex": finDeps.MerkleTrieIndex,
-	}).Info("=== LogProcessing: StateTracker: EVT: FinalizedCheckpoint: check deposit root")
-	return err
-}
+	s.lastHandledSlot = cpSt.Slot()
 
-func (s *Service) initStateTrackerWorkMode(data *ethpbv1.EventFinalizedCheckpoint, st state.BeaconState, isBadDepositRoot bool) error {
 	if isBadDepositRoot {
-		log.Warn("=== LogProcessing: StateTracker: EVT: FinalizedCheckpoint: reset by bad deposit root")
+		log.Warn("=== LogProcessing: StateTracker: head sync: reset by bad deposit root")
 		// reset to recalculate all deposits
-		prevSt, err := s.cfg.beaconDB.GenesisState(s.ctx)
+		genesisSt, err := s.cfg.beaconDB.GenesisState(s.ctx)
 		if err != nil {
-			log.WithError(err).Error("Init state tracker work mode: retrieve state failed")
+			log.WithError(err).Error("=== LogProcessing: StateTracker: head sync: retrieve state failed")
 			return err
 		}
 		err = s.resetEth1Data(s.ctx)
@@ -559,63 +475,229 @@ func (s *Service) initStateTrackerWorkMode(data *ethpbv1.EventFinalizedCheckpoin
 			log.WithError(err).Error("Init state tracker work mode: reset eth data failed")
 			return err
 		}
-		baseSpine := helpers.GetTerminalFinalizedSpine(prevSt)
-		s.lastHandledState = prevSt
+		baseSpine := helpers.GetTerminalFinalizedSpine(genesisSt)
+		s.lastHandledState = genesisSt
 		blockNumberGauge.Set(0)
 		s.latestEth1Data.BlockHash = baseSpine.Bytes()
-		s.latestEth1Data.BlockTime = prevSt.GenesisTime()
+		s.latestEth1Data.BlockTime = genesisSt.GenesisTime()
 		s.latestEth1Data.CpHash = baseSpine.Bytes()
 		s.latestEth1Data.LastRequestedBlock = 0
+	} else {
+		prevRoot := bytesutil.ToBytes32(cpSt.FinalizedCheckpoint().Root)
+		prevSt, err := s.cfg.stateGen.StateByRoot(s.ctx, prevRoot)
+		if err != nil {
+			log.WithError(err).WithFields(logrus.Fields{
+				" slot":      data.Slot,
+				"block":      fmt.Sprintf("%#x", data.BlockRoot),
+				"prevCpRoot": fmt.Sprintf("%#x", prevRoot),
+			}).Error("=== LogProcessing: StateTracker: head sync: get prev cp state failed")
+			return err
+		}
+
+		if uint64(s.lastReceivedMerkleIndex) < prevSt.Eth1Data().DepositCount-1 {
+			handledCount, err := s.handleFinalizedDeposits(bytesutil.ToBytes32(data.SignedBlock.Block().ParentRoot()))
+			if err != nil {
+				log.WithError(err).WithFields(logrus.Fields{
+					" slot":        data.Slot,
+					"deposits":     len(data.SignedBlock.Block().Body().Deposits()),
+					"block":        fmt.Sprintf("%#x", data.BlockRoot),
+					"handledCount": handledCount,
+				}).Error("=== LogProcessing: StateTracker: head sync: rebuild merkle trie failed")
+				return fmt.Errorf("%w: %w", errInvalidDepositRoot, err)
+			}
+		}
+
+		baseSpine := helpers.GetTerminalFinalizedSpine(prevSt)
+		prevHeader, err := s.eth1DataFetcher.HeaderByHash(s.ctx, baseSpine)
+		if err != nil {
+			log.WithError(err).WithFields(logrus.Fields{
+				" slot":      data.Slot,
+				"block":      fmt.Sprintf("%#x", data.BlockRoot),
+				"prevCpRoot": fmt.Sprintf("%#x", prevRoot),
+				"baseSpine":  fmt.Sprintf("%#x", baseSpine),
+			}).Error("=== LogProcessing: StateTracker: head sync: fetch shard1 header failed")
+			if !s.pollConnActive {
+				// check gwat connection
+				head, err1 := s.eth1DataFetcher.HeaderByNumber(s.ctx, nil)
+				log.WithError(err1).WithFields(logrus.Fields{
+					"head": fmt.Sprintf("%v", head),
+				}).Info("=== LogProcessing: StateTracker: head sync: update shard con status 1")
+				if err1 != nil {
+					go s.pollConnectionStatus(s.ctx)
+				}
+			}
+			return err
+		}
+		s.lastHandledState = prevSt
+		blockNumberGauge.Set(float64(prevHeader.Nr()))
+		s.latestEth1Data.BlockHeight = prevHeader.Nr()
+		s.latestEth1Data.BlockHash = baseSpine.Bytes()
+		s.latestEth1Data.BlockTime = prevHeader.Time
+		s.latestEth1Data.CpHash = baseSpine.Bytes()
+		s.latestEth1Data.CpNr = prevHeader.Nr()
+		s.latestEth1Data.LastRequestedBlock = s.followBlockHeight(s.ctx)
+	}
+
+	baseSpine := helpers.GetTerminalFinalizedSpine(cpSt)
+	log.WithFields(logrus.Fields{
+		" slot":                      data.Slot,
+		"block":                      fmt.Sprintf("%#x", data.BlockRoot),
+		"lState.DepositCount":        fmt.Sprintf("%d", s.lastHandledState.Eth1Data().DepositCount),
+		"lastReceivedMerkleIndex":    fmt.Sprintf("%d", s.lastReceivedMerkleIndex),
+		"baseSpine":                  fmt.Sprintf("%#x", baseSpine),
+		"stSlot":                     cpSt.Slot(),
+		"stFinalizedCheckpointEpoch": cpSt.FinalizedCheckpointEpoch(),
+	}).Info("=== LogProcessing: StateTracker: head sync: request past logs")
+
+	header, err := s.eth1DataFetcher.HeaderByHash(s.ctx, baseSpine)
+	if err != nil {
+		log.WithError(err).WithFields(logrus.Fields{
+			" slot":     data.Slot,
+			"block":     fmt.Sprintf("%#x", data.BlockRoot),
+			"baseSpine": fmt.Sprintf("%#x", baseSpine),
+			"stSlot":    cpSt.Slot(),
+		}).Error("=== LogProcessing: StateTracker: head sync: FinalizedCheckpoint: could not fetch latest shard1 header")
+
+		if !s.pollConnActive {
+			// check gwat connection
+			head, err1 := s.eth1DataFetcher.HeaderByNumber(s.ctx, nil)
+			log.WithError(err1).WithFields(logrus.Fields{
+				"head": fmt.Sprintf("%v", head),
+			}).Info("=== LogProcessing: StateTracker: head sync: update shard con status 2")
+			if err1 != nil {
+				go s.pollConnectionStatus(s.ctx)
+			}
+		}
+		s.lastHandledState = nil
+		return err
+	}
+	s.processBlockHeader(header, &baseSpine)
+	s.handleETH1FollowDistance()
+
+	err = s.rmOutdatedWithdrawalsFromPool(cpSt.Slot())
+	if err != nil {
+		// reset to retry next iteration
+		s.cfg.withdrawalPool.Reset()
+		s.lastHandledState = nil
+		return err
+	}
+	s.checkDefaultEndpoint(s.ctx)
+
+	s.lastHandledBlock = evtFcpRoot
+	s.lastHandledSlot = cpSt.Slot()
+	s.lastHandledState = cpSt
+
+	//check depositRoot in cache
+	cpDepRoot := cpSt.Eth1Data().DepositRoot
+	cpDepCount := cpSt.Eth1Data().DepositCount
+	deps := s.cfg.depositCache.AllDepositContainers(s.ctx)
+
+	if uint64(len(deps)) < cpDepCount || !bytes.Equal(deps[cpDepCount-1].DepositRoot, cpDepRoot) {
+		// init all log processing from genesis
+		s.lastHandledState = nil
+		log.WithError(err).WithFields(logrus.Fields{
+			"deps":                    len(deps),
+			" cpDepRoot":              fmt.Sprintf("%#x", cpDepRoot),
+			" cacheDepositRoot":       fmt.Sprintf("%#x", deps[cpDepCount-1].DepositRoot),
+			" slot":                   data.Slot,
+			"block":                   fmt.Sprintf("%#x", data.BlockRoot),
+			"cpSlot":                  cpSt.Slot(),
+			"cpDepCount":              fmt.Sprintf("%d", cpSt.Eth1Data().DepositCount),
+			"lastReceivedMerkleIndex": fmt.Sprintf("%d", s.lastReceivedMerkleIndex),
+		}).Error("=== LogProcessing: StateTracker: head sync: FinalizedCheckpoint: deposit root validation failed")
+		return fmt.Errorf("%w: %w", errInvalidDepositRoot, err)
+	}
+
+	return nil
+}
+
+func (s *Service) handlerFinalizedCheckpointEvt(data *ethpbv1.EventFinalizedCheckpoint) error {
+	// if the first event recieved - reinit required props
+	if s.lastHandledState == nil {
+		return nil
+	}
+	//check gwat connection is established
+	if s.eth1DataFetcher == nil {
 		return nil
 	}
 
-	prevRoot := bytesutil.ToBytes32(st.FinalizedCheckpoint().Root)
-	prevSt, err := s.cfg.stateGen.StateByRoot(s.ctx, prevRoot)
+	s.lastHandledSlot = data.FinalizationSlot
+
+	// check delegating stake fork active
+	if !params.BeaconConfig().IsDelegatingStakeSlot(s.lastHandledSlot) {
+		handledCount, err := s.handleFinalizedDeposits(bytesutil.ToBytes32(data.Block))
+		if err != nil {
+			log.WithError(err).WithFields(logrus.Fields{
+				"lState.Count":            fmt.Sprintf("%d", s.lastHandledState.Eth1Data().DepositCount),
+				"lastReceivedMerkleIndex": fmt.Sprintf("%d", s.lastReceivedMerkleIndex),
+				"evtEpoch":                data.Epoch,
+				"evtBlock":                fmt.Sprintf("%#x", data.Block),
+				"evtState":                fmt.Sprintf("%#x", data.State),
+				"evtIsOptimistic":         data.ExecutionOptimistic,
+				"handledCount":            handledCount,
+			}).Error("=== LogProcessing: StateTracker: EvtFinalizedCheckpoint: handle finalized deposits before delegate fork")
+			return fmt.Errorf("%w: %w", errInvalidDepositRoot, err)
+		}
+		log.WithFields(logrus.Fields{
+			"lState.DepositCount":     fmt.Sprintf("%d", s.lastHandledState.Eth1Data().DepositCount),
+			"lastReceivedMerkleIndex": fmt.Sprintf("%d", s.lastReceivedMerkleIndex),
+			"evtEpoch":                data.Epoch,
+			"evtBlock":                fmt.Sprintf("%#x", data.Block),
+			"evtState":                fmt.Sprintf("%#x", data.State),
+			"evtIsOptimistic":         data.ExecutionOptimistic,
+			"handledCount":            handledCount,
+		}).Info("=== LogProcessing: StateTracker: EvtFinalizedCheckpoint: handle finalized deposits before delegate fork")
+		return nil
+	}
+
+	st, err := s.cfg.stateGen.StateByRoot(s.ctx, bytesutil.ToBytes32(data.Block))
 	if err != nil {
+		log.WithError(err).WithFields(logrus.Fields{
+			"evtEpoch":        data.Epoch,
+			"evtBlock":        fmt.Sprintf("%#x", data.Block),
+			"evtState":        fmt.Sprintf("%#x", data.State),
+			"evtIsOptimistic": data.ExecutionOptimistic,
+		}).Error("=== LogProcessing: StateTracker: EvtFinalizedCheckpoint: get state failed")
+		return err
+	}
+
+	baseSpine := helpers.GetTerminalFinalizedSpine(st)
+	log.WithFields(logrus.Fields{
+		"lState.DepositCount":        fmt.Sprintf("%d", s.lastHandledState.Eth1Data().DepositCount),
+		"lastReceivedMerkleIndex":    fmt.Sprintf("%d", s.lastReceivedMerkleIndex),
+		"evtEpoch":                   data.Epoch,
+		"evtBlock":                   fmt.Sprintf("%#x", data.Block),
+		"evtState":                   fmt.Sprintf("%#x", data.State),
+		"evtIsOptimistic":            data.ExecutionOptimistic,
+		"baseSpine":                  fmt.Sprintf("%#x", baseSpine),
+		"stSlot":                     st.Slot(),
+		"stFinalizedCheckpointEpoch": st.FinalizedCheckpointEpoch(),
+	}).Info("=== LogProcessing: StateTracker: EvtFinalizedCheckpoint")
+
+	header, err := s.eth1DataFetcher.HeaderByHash(s.ctx, baseSpine)
+	if err != nil {
+		log.WithError(err).WithFields(logrus.Fields{
+			"baseSpine": fmt.Sprintf("%#x", baseSpine),
+			"stSlot":    st.Slot(),
+		}).Error("=== LogProcessing: StateTracker: EvtFinalizedCheckpoint: could not fetch latest shard1 header")
 		if !s.pollConnActive {
 			// check gwat connection
 			head, err1 := s.eth1DataFetcher.HeaderByNumber(s.ctx, nil)
 			log.WithError(err1).WithFields(logrus.Fields{
 				"head": fmt.Sprintf("%v", head),
-			}).Info("=== LogProcessing: pollConnActive: 000")
-			if err1 != nil {
-				go s.pollConnectionStatus(s.ctx)
-			}
-		}
-		log.WithField("evtType", "FinalizedCheckpoint").Error("Event handler: retrieve state failed")
-		return err
-	}
-
-	baseSpine := helpers.GetTerminalFinalizedSpine(prevSt)
-	prevHeader, err := s.eth1DataFetcher.HeaderByHash(s.ctx, baseSpine)
-	if err != nil {
-		log.WithError(err).Error("=== LogProcessing: Could not fetch latest shard1 header")
-		handledCount, err0 := s.handleFinalizedDeposits(bytesutil.ToBytes32(data.Block))
-		log.WithError(err0).WithFields(logrus.Fields{
-			"cpBlock":      fmt.Sprintf("%#x", data.Block),
-			"handledCount": handledCount,
-		}).Info("=== LogProcessing: StateTracker: EVT: FinalizedCheckpoint: handle finalized deposits 333")
-
-		if !s.pollConnActive {
-			// check gwat connection
-			head, err1 := s.eth1DataFetcher.HeaderByNumber(s.ctx, nil)
-			log.WithError(err1).WithFields(logrus.Fields{
-				"head": fmt.Sprintf("%v", head),
-			}).Info("=== LogProcessing: pollConnActive: 111")
+			}).Info("=== LogProcessing: StateTracker: EvtFinalizedCheckpoint: update shard con status 3")
 			if err1 != nil {
 				go s.pollConnectionStatus(s.ctx)
 			}
 		}
 		return err
 	}
-	s.lastHandledState = prevSt
-	blockNumberGauge.Set(float64(prevHeader.Nr()))
-	s.latestEth1Data.BlockHeight = prevHeader.Nr()
-	s.latestEth1Data.BlockHash = baseSpine.Bytes()
-	s.latestEth1Data.BlockTime = prevHeader.Time
-	s.latestEth1Data.CpHash = baseSpine.Bytes()
-	s.latestEth1Data.CpNr = prevHeader.Nr()
-	s.latestEth1Data.LastRequestedBlock = s.followBlockHeight(s.ctx)
+	s.processBlockHeader(header, &baseSpine)
+	s.handleETH1FollowDistance()
+	s.checkDefaultEndpoint(s.ctx)
+	s.lastHandledBlock = bytesutil.ToBytes32(data.Block)
+	s.lastHandledState = st
+
 	return nil
 }
 

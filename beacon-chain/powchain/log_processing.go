@@ -172,9 +172,8 @@ func (s *Service) ProcessUpdateBalanceLog(ctx context.Context, upBalLog gwatType
 	return nil
 }
 
-func (s *Service) rmOutdatedWithdrawalsFromPool() error {
-	curSlot := s.lastHandledSlot
-	if !params.BeaconConfig().IsDelegatingStakeSlot(s.lastHandledSlot) {
+func (s *Service) rmOutdatedWithdrawalsFromPool(curSlot types.Slot) error {
+	if !params.BeaconConfig().IsDelegatingStakeSlot(curSlot) {
 		curSlot = slots.CurrentSlot(s.cfg.finalizedStateAtStartup.GenesisTime())
 	}
 	var minSlot types.Slot = 0
@@ -814,7 +813,7 @@ func (s *Service) handleFinalizedDeposits(cpRoot [32]byte) (int, error) {
 	}
 	var (
 		lastDepositIndex = uint64(s.lastReceivedMerkleIndex + 1)
-		cpDepositIndex   = headSt.Eth1DepositIndex()
+		cpDepositIndex   = headSt.Eth1Data().DepositCount
 		currIndex        = cpDepositIndex
 		currBlockHash    = cpRoot
 	)
@@ -822,7 +821,7 @@ func (s *Service) handleFinalizedDeposits(cpRoot [32]byte) (int, error) {
 		return 0, nil
 	}
 
-	deposits := make([]*ethpb.Deposit, 0, headSt.Eth1DepositIndex()-lastDepositIndex)
+	deposits := make([]*ethpb.Deposit, 0, headSt.Eth1Data().DepositCount-lastDepositIndex)
 	for {
 		bBlock, err := s.cfg.beaconDB.Block(s.ctx, currBlockHash)
 		if err != nil {
