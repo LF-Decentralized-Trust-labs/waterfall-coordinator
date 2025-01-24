@@ -272,10 +272,10 @@ func NewService(ctx context.Context, opts ...Option) (*Service, error) {
 func (s *Service) StateTracker() {
 	chainEvtCh := make(chan *feed.Event, 0)
 	sub := s.cfg.stateNotifier.StateFeed().Subscribe(chainEvtCh)
+	defer sub.Unsubscribe()
 
 	isBadDepositRoot := false
 
-	defer sub.Unsubscribe()
 	for {
 		select {
 		case <-s.ctx.Done():
@@ -293,65 +293,23 @@ func (s *Service) StateTracker() {
 				}
 
 				log.WithFields(logrus.Fields{
-					"isBadDepositRoot":          isBadDepositRoot,
+					" isInitialSync":            data.InitialSync,
 					"s.lastHandledSlot":         s.lastHandledSlot,
 					"s.lastReceivedMerkleIndex": s.lastReceivedMerkleIndex,
-					"isInitialSync":             data.InitialSync,
-					"Chainstarted":              s.chainStartData.Chainstarted,
+					"isBadDepositRoot":          isBadDepositRoot,
+					"isChainstarted":            s.chainStartData.Chainstarted,
 				}).Info("=== LogProcessing: StateTracker: EVT: BlockProcessed 000000000")
 
-				if !data.InitialSync {
-					continue
-				}
-				if isBadDepositRoot {
-					continue
-				}
-				s.lastHandledSlot = data.Slot
-				s.lastHandledBlock = data.BlockRoot
-				depLen := len(data.SignedBlock.Block().Body().Deposits())
-				if depLen == 0 {
-					continue
-				}
-				st, err := s.cfg.stateGen.StateByRoot(s.ctx, data.BlockRoot)
-				if err != nil {
-					log.WithField("evtType", "BlockProcessed").Fatal("Event handler: retrieve state failed")
-				}
-
-				log.WithFields(logrus.Fields{
-					"evtType":             ev.Type,
-					"ad.Slot":             data.Slot,
-					"bd.Deposits":         len(data.SignedBlock.Block().Body().Deposits()),
-					"st.Eth1DepositIndex": st.Eth1DepositIndex(),
-					"cd.Block":            fmt.Sprintf("%#x", data.BlockRoot),
-				}).Info("=== LogProcessing: StateTracker: EVT: BlockProcessed")
-
-				baseDepIndex := st.Eth1DepositIndex() - uint64(depLen)
-				if s.lastReceivedMerkleIndex+1 < new(big.Int).SetUint64(baseDepIndex).Int64() {
-					handledCount, err := s.handleFinalizedDeposits(bytesutil.ToBytes32(data.SignedBlock.Block().ParentRoot()))
-					if err != nil {
-						log.WithError(err).WithFields(logrus.Fields{
-							"parent":       fmt.Sprintf("%#x", data.SignedBlock.Block().ParentRoot()),
-							"block":        fmt.Sprintf("%#x", data.BlockRoot),
-							"handledCount": handledCount,
-							"evtType":      "BlockProcessed",
-						}).Fatal("Event handler: rebuild merkle trie failed")
+				if err := s.handlerBlockProcessedEvt(data, isBadDepositRoot); err != nil {
+					if errors.Is(err, errInvalidDepositRoot) {
+						isBadDepositRoot = true
 					}
+					log.WithError(err).WithFields(logrus.Fields{
+						"errInvalidDepositRoot": errors.Is(err, errInvalidDepositRoot),
+						"isBadDepositRoot":      isBadDepositRoot,
+					}).Error("=== LogProcessing: StateTracker: EVT: BlockProcessed: error")
+					continue
 				}
-
-				for i, deposit := range data.SignedBlock.Block().Body().Deposits() {
-					err = s.ProcessDepositBlock(deposit, baseDepIndex+uint64(i))
-					if err != nil {
-						log.WithError(err).WithField("evtType", "BlockProcessed").Fatal("Event handler: failed")
-					}
-				}
-
-				baseSpine := helpers.GetTerminalFinalizedSpine(st)
-				log.WithFields(logrus.Fields{
-					"_baseSpine":  fmt.Sprintf("%#x", baseSpine),
-					"ad.Slot":     data.Slot,
-					"bd.Deposits": len(data.SignedBlock.Block().Body().Deposits()),
-					"cd.Block":    fmt.Sprintf("%#x", data.BlockRoot),
-				}).Info("=== LogProcessing: StateTracker: EVT: BlockProcessed: baseSpine")
 			}
 
 			// first event when last finalized checkpoint reached
@@ -417,7 +375,7 @@ func (s *Service) StateTracker() {
 
 				baseSpine := helpers.GetTerminalFinalizedSpine(st)
 				log.WithFields(logrus.Fields{
-					"_baseSpine":                  fmt.Sprintf("%#x", baseSpine),
+					"baseSpine":                   fmt.Sprintf("%#x", baseSpine),
 					"lState.DepositIndex":         fmt.Sprintf("%d", s.lastHandledState.Eth1DepositIndex()),
 					"lastReceivedMerkleIndex":     fmt.Sprintf("%d", s.lastReceivedMerkleIndex),
 					"ad.Epoch":                    data.Epoch,
@@ -473,6 +431,73 @@ func (s *Service) StateTracker() {
 	}
 }
 
+func (s *Service) handlerBlockProcessedEvt(data *statefeed.BlockProcessedData, isBadDepositRoot bool) error {
+	if !data.InitialSync {
+		return nil
+	}
+	if isBadDepositRoot {
+		return nil
+	}
+	s.lastHandledSlot = data.Slot
+	s.lastHandledBlock = data.BlockRoot
+	depLen := len(data.SignedBlock.Block().Body().Deposits())
+	if depLen == 0 {
+		return nil
+	}
+	st, err := s.cfg.stateGen.StateByRoot(s.ctx, data.BlockRoot)
+	if err != nil {
+		log.WithError(err).WithFields(logrus.Fields{
+			" slot":    data.Slot,
+			"deposits": len(data.SignedBlock.Block().Body().Deposits()),
+			"block":    fmt.Sprintf("%#x", data.BlockRoot),
+		}).Error("=== LogProcessing: StateTracker: EVT: BlockProcessed: get state failed")
+		return nil
+	}
+
+	log.WithFields(logrus.Fields{
+		" Slot":        data.Slot,
+		"deposits":     len(data.SignedBlock.Block().Body().Deposits()),
+		"depositIndex": st.Eth1DepositIndex(),
+		"block":        fmt.Sprintf("%#x", data.BlockRoot),
+	}).Info("=== LogProcessing: StateTracker: EVT: BlockProcessed")
+
+	baseDepIndex := st.Eth1DepositIndex() - uint64(depLen)
+	if s.lastReceivedMerkleIndex+1 < new(big.Int).SetUint64(baseDepIndex).Int64() {
+		handledCount, err := s.handleFinalizedDeposits(bytesutil.ToBytes32(data.SignedBlock.Block().ParentRoot()))
+		if err != nil {
+			log.WithError(err).WithFields(logrus.Fields{
+				" slot":        data.Slot,
+				"deposits":     len(data.SignedBlock.Block().Body().Deposits()),
+				"block":        fmt.Sprintf("%#x", data.BlockRoot),
+				"handledCount": handledCount,
+			}).Error("=== LogProcessing: StateTracker: EVT: BlockProcessed: rebuild merkle trie failed")
+			return fmt.Errorf("%w: %w", errInvalidDepositRoot, err)
+		}
+	}
+
+	for i, deposit := range data.SignedBlock.Block().Body().Deposits() {
+		err = s.ProcessDepositBlock(deposit, baseDepIndex+uint64(i))
+		if err != nil {
+			log.WithError(err).WithFields(logrus.Fields{
+				" slot":    data.Slot,
+				"deposits": len(data.SignedBlock.Block().Body().Deposits()),
+				"block":    fmt.Sprintf("%#x", data.BlockRoot),
+			}).Error("=== LogProcessing: StateTracker: EVT: BlockProcessed: process deposit failed")
+			return fmt.Errorf("%w: %w", errInvalidDepositRoot, err)
+		}
+	}
+
+	baseSpine := helpers.GetTerminalFinalizedSpine(st)
+	log.WithFields(logrus.Fields{
+		"baseSpine": fmt.Sprintf("%#x", baseSpine),
+		" slot":     data.Slot,
+		"deposits":  len(data.SignedBlock.Block().Body().Deposits()),
+		"block":     fmt.Sprintf("%#x", data.BlockRoot),
+	}).Info("=== LogProcessing: StateTracker: EVT: BlockProcessed: baseSpine")
+
+	return nil
+}
+
 func (s *Service) verifyFinalizedDeposits(finState state.BeaconState) error {
 	finDeps := s.cfg.depositCache.FinalizedDeposits(s.ctx)
 	trieIndex := finDeps.MerkleTrieIndex
@@ -513,6 +538,7 @@ func (s *Service) verifyFinalizedDeposits(finState state.BeaconState) error {
 		" trieIndex":      trieIndex,
 		" stDepCount":     stDepCount,
 		" stDepRoot":      fmt.Sprintf("%#x", stDepRoot),
+		"finProfs":        len(finProf),
 		"lastFinDepRoot":  fmt.Sprintf("%#x", lastFinDepRoot),
 		"MerkleTrieIndex": finDeps.MerkleTrieIndex,
 	}).Info("=== LogProcessing: StateTracker: EVT: FinalizedCheckpoint: check deposit root")

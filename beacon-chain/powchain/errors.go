@@ -31,3 +31,8 @@ var (
 	// ErrNilResponse when the response is nil.
 	ErrNilResponse = errors.New("nil response")
 )
+
+var (
+	// errInvalidDepositRoot when the deposit root is invalid.
+	errInvalidDepositRoot = errors.New("invalid deposit root")
+)

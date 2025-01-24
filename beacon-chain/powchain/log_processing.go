@@ -15,7 +15,6 @@ import (
 	coreState "gitlab.waterfall.network/waterfall/protocol/coordinator/beacon-chain/core/transition"
 	v1 "gitlab.waterfall.network/waterfall/protocol/coordinator/beacon-chain/state/v1"
 	"gitlab.waterfall.network/waterfall/protocol/coordinator/config/params"
-	"gitlab.waterfall.network/waterfall/protocol/coordinator/container/trie"
 	"gitlab.waterfall.network/waterfall/protocol/coordinator/encoding/bytesutil"
 	ethpb "gitlab.waterfall.network/waterfall/protocol/coordinator/proto/prysm/v1alpha1"
 	"gitlab.waterfall.network/waterfall/protocol/coordinator/time/slots"
@@ -801,31 +800,6 @@ func (s *Service) ProcessDepositBlock(deposit *ethpb.Deposit, depositIndex uint6
 		return errors.Wrap(err, "block deposit processing: could not prune deposit proofs")
 	}
 	validDepositsCount.Inc()
-	return nil
-}
-
-func verifyDeposit(depositRoot []byte, depositIndex uint64, deposit *ethpb.Deposit) error {
-	// Verify Merkle proof of deposit and deposit trie root.
-	if deposit == nil || deposit.Data == nil {
-		return errors.New("received nil deposit or nil deposit data")
-	}
-	leaf, err := deposit.Data.HashTreeRoot()
-	if err != nil {
-		return errors.Wrap(err, "could not tree hash deposit data")
-	}
-	if ok := trie.VerifyMerkleProofWithDepth(
-		depositRoot,
-		leaf[:],
-		depositIndex,
-		deposit.Proof,
-		params.BeaconConfig().DepositContractTreeDepth,
-	); !ok {
-		return fmt.Errorf(
-			"deposit merkle branch of deposit root did not verify for root: %#x index: %d",
-			depositRoot,
-			depositIndex,
-		)
-	}
 	return nil
 }
 
