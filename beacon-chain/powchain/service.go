@@ -339,15 +339,6 @@ func (s *Service) StateTracker() {
 				}
 
 				for i, deposit := range data.SignedBlock.Block().Body().Deposits() {
-					err = verifyDeposit(st.Eth1Data().DepositRoot, baseDepIndex+uint64(i), deposit)
-					if err != nil {
-						log.WithError(err).WithFields(logrus.Fields{
-							"st.DepositRoot": fmt.Sprintf("%#x", st.Eth1Data().DepositRoot),
-							"ad.Slot":        data.Slot,
-						}).Error("=== LogProcessing: StateTracker: EVT: BlockProcessed: validate deposit")
-						isBadDepositRoot = true
-						continue
-					}
 					err = s.ProcessDepositBlock(deposit, baseDepIndex+uint64(i))
 					if err != nil {
 						log.WithError(err).WithField("evtType", "BlockProcessed").Fatal("Event handler: failed")
@@ -473,22 +464,6 @@ func (s *Service) StateTracker() {
 					}
 				}
 				s.checkDefaultEndpoint(s.ctx)
-
-				//err = s.cfg.beaconDB.WriteWithdrawalPool(s.ctx, s.cfg.withdrawalPool.CopyItems())
-				//if err != nil {
-				//	log.WithError(err).WithFields(logrus.Fields{
-				//		"poolItms": len(s.cfg.withdrawalPool.CopyItems()),
-				//		"st.Slot":  st.Slot(),
-				//	}).Error("=== LogProcessing: StateTracker: EVT: FinalizedCheckpoint: save withdrawal pool failed")
-				//}
-
-				err = s.cfg.beaconDB.WriteExitPool(s.ctx, s.cfg.exitPool.CopyItems())
-				if err != nil {
-					log.WithError(err).WithFields(logrus.Fields{
-						"poolItms": len(s.cfg.exitPool.CopyItems()),
-						"st.Slot":  st.Slot(),
-					}).Error("=== LogProcessing: StateTracker: EVT: FinalizedCheckpoint: save exit pool failed")
-				}
 
 				s.lastHandledBlock = bytesutil.ToBytes32(data.Block)
 				//s.lastHandledSlot = st.Slot()
