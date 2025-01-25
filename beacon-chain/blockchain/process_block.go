@@ -154,7 +154,7 @@ func (s *Service) onBlock(ctx context.Context, signed block.SignedBeaconBlock, b
 			if !s.IsGwatSynchronizing() &&
 				!s.isSynchronizing() &&
 				params.BeaconConfig().IsDelegatingStakeSlot(signed.Block().Slot()) &&
-				s.cfg.BlockFetcher.IsTxLogValid() {
+				s.IsValOpPoolValid() {
 				if err := s.cfg.WithdrawalPool.Verify(itm); err != nil {
 					log.WithError(err).WithFields(logrus.Fields{
 						"i":              i,
@@ -184,7 +184,7 @@ func (s *Service) onBlock(ctx context.Context, signed block.SignedBeaconBlock, b
 			if !s.IsGwatSynchronizing() &&
 				!s.isSynchronizing() &&
 				params.BeaconConfig().IsDelegatingStakeSlot(signed.Block().Slot()) &&
-				s.cfg.BlockFetcher.IsTxLogValid() {
+				s.IsValOpPoolValid() {
 				if err := s.cfg.ExitPool.Verify(itm); err != nil {
 					log.WithError(err).WithFields(logrus.Fields{
 						"i":              i,

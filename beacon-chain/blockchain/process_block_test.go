@@ -99,7 +99,7 @@ func TestStore_OnBlock_ProtoArray(t *testing.T) {
 				return b
 			}(),
 			s:             st.Copy(),
-			wantErrString: "not found",
+			wantErrString: "slot (18446744073709551615) is in the far distant future: multiplication overflows",
 		},
 		{
 			name: "could not get finalized block",
@@ -204,7 +204,7 @@ func TestStore_OnBlock_DoublyLinkedTree(t *testing.T) {
 				return b
 			}(),
 			s:             st.Copy(),
-			wantErrString: "not found",
+			wantErrString: "slot (18446744073709551615) is in the far distant future: multiplication overflows",
 		},
 		{
 			name: "could not get finalized block",

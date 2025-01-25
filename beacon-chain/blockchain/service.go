@@ -218,6 +218,13 @@ func (s *Service) IsSynced() bool {
 	return !s.isSynchronizing()
 }
 
+func (s *Service) IsValOpPoolValid() bool {
+	if s.cfg.BlockFetcher == nil {
+		return false
+	}
+	return s.cfg.BlockFetcher.IsTxLogValid()
+}
+
 func (s *Service) IsGwatSynchronizing() bool {
 	return s.isGwatSyncing.IsSet()
 }
