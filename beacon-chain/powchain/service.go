@@ -598,7 +598,6 @@ func (s *Service) headSyncTxLogsByBlockEvt(data *statefeed.BlockProcessedData, i
 		log.WithError(err).WithFields(logrus.Fields{
 			"deps":                    len(deps),
 			" cpDepRoot":              fmt.Sprintf("%#x", cpDepRoot),
-			" cacheDepositRoot":       fmt.Sprintf("%#x", deps[cpDepCount-1].DepositRoot),
 			" slot":                   data.Slot,
 			"block":                   fmt.Sprintf("%#x", data.BlockRoot),
 			"cpSlot":                  cpSt.Slot(),
