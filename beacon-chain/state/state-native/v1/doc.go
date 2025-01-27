@@ -1,5 +1,5 @@
 /*
-Package v1 defines how the beacon chain state for Ethereum
+Package v1 defines how the beacon chain state for coordinator
 functions in the running beacon node, using an advanced,
 immutable implementation of the state data structure.
 

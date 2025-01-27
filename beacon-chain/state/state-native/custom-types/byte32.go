@@ -10,7 +10,7 @@ var _ fssz.HashRoot = (Byte32)([32]byte{})
 var _ fssz.Marshaler = (*Byte32)(nil)
 var _ fssz.Unmarshaler = (*Byte32)(nil)
 
-// Byte32 represents a 32 bytes Byte32 object in Ethereum beacon chain consensus.
+// Byte32 represents a 32 bytes Byte32 object in beacon chain consensus.
 type Byte32 [32]byte
 
 // HashTreeRoot returns calculated hash root.

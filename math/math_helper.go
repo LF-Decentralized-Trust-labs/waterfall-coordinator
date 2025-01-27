@@ -1,4 +1,4 @@
-// Package math includes important helpers for Ethereum such as fast integer square roots.
+// Package math includes important helpers for coordinator such as fast integer square roots.
 package math
 
 import (
@@ -10,7 +10,7 @@ import (
 )
 
 func init() {
-	// The Int function assumes that the operating system is 64 bit. In any case, Ethereum
+	// The Int function assumes that the operating system is 64 bit. In any case,
 	// consensus layer uses 64 bit values almost exclusively so 64 bit OS requirement should
 	// already be established. This panic is a strict fail fast feedback to alert 32 bit users
 	// that they are not supported.

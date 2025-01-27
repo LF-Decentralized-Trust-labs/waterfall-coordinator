@@ -115,6 +115,7 @@ func (s *Service) ProcessLog(ctx context.Context, depositLog gwatTypes.Log) erro
 	return nil
 }
 
+// ProcessWithdrawalLog processes the withdrawal log received from shard-node.
 func (s *Service) ProcessWithdrawalLog(ctx context.Context, wtdLog gwatTypes.Log) error {
 	pubkey, creatorAddr, valIndex, amtGwei, err := gwatValLog.UnpackWithdrawalLogData(wtdLog.Data)
 
@@ -237,6 +238,7 @@ func (s *Service) rmOutdatedWithdrawalsFromPool(curSlot types.Slot) error {
 	return nil
 }
 
+// ProcessExitLog processes the exit log received from shard-node.
 func (s *Service) ProcessExitLog(ctx context.Context, exitLog gwatTypes.Log) error {
 	pubkey, creatorAddr, valIndex, exitEpoch, err := gwatValLog.UnpackExitRequestLogData(exitLog.Data)
 
@@ -283,7 +285,7 @@ func (s *Service) ProcessExitLog(ctx context.Context, exitLog gwatTypes.Log) err
 }
 
 // ProcessDepositLog processes the log which had been received from
-// the ETH1.0 chain by trying to ascertain which participant deposited
+// the shard chain by trying to ascertain which participant deposited
 // in the contract.
 func (s *Service) ProcessDepositLog(ctx context.Context, depositLog gwatTypes.Log) error {
 	pubkey, creatorAddr, withdrawalCredentials, amount, signature, depositIndex, err := gwatValLog.UnpackDepositLogData(depositLog.Data)
@@ -408,7 +410,7 @@ func (s *Service) ProcessDepositLog(ctx context.Context, depositLog gwatTypes.Lo
 }
 
 // ProcessChainStart processes the log which had been received from
-// the ETH1.0 chain by trying to determine when to start the beacon chain.
+// the shard chain by trying to determine when to start the beacon chain.
 func (s *Service) ProcessChainStart(genesisTime uint64, eth1BlockHash [32]byte, blockNumber uint64) {
 	s.chainStartData.Chainstarted = true
 	s.chainStartData.GenesisBlock = blockNumber

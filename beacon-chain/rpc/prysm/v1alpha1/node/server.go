@@ -52,7 +52,7 @@ func (ns *Server) GetSyncStatus(_ context.Context, _ *empty.Empty) (*ethpb.SyncS
 	}, nil
 }
 
-// GetGenesis fetches genesis chain information of Ethereum. Returns unix timestamp 0
+// GetGenesis fetches genesis chain information. Returns unix timestamp 0
 // if a genesis time has yet to be determined.
 func (ns *Server) GetGenesis(ctx context.Context, _ *empty.Empty) (*ethpb.Genesis, error) {
 	contractAddr, err := ns.BeaconDB.DepositContractAddress(ctx)
@@ -221,7 +221,7 @@ func (ns *Server) ListPeers(ctx context.Context, _ *empty.Empty) (*ethpb.Peers, 
 	}, nil
 }
 
-// GetETH1ConnectionStatus gets data about the ETH1 endpoints.
+// GetETH1ConnectionStatus gets data about the shard-node  endpoints.
 func (ns *Server) GetETH1ConnectionStatus(ctx context.Context, _ *empty.Empty) (*ethpb.ETH1ConnectionStatus, error) {
 	var errStrs []string
 	errs := ns.POWChainInfoFetcher.ETH1ConnectionErrors()

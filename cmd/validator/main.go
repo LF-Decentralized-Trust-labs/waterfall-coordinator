@@ -1,4 +1,4 @@
-// Package main defines a validator client, a critical actor in Ethereum which manages
+// Package main defines a validator client, a critical actor which manages
 // a keystore of private keys, connects to a beacon node to receive assignments,
 // and submits blocks/attestations as needed.
 package main

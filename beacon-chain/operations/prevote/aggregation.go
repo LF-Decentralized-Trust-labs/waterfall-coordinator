@@ -27,6 +27,7 @@ import (
 	"go.opencensus.io/trace"
 )
 
+// HasPrevote returns true if provided instance has been cached otherwise - false.
 func (c *PrevoteCache) HasPrevote(pv *ethpb.PreVote) (bool, error) {
 	if pv == nil || pv.Data == nil {
 		return false, errors.New("Prevote data cannot be nil")
@@ -49,6 +50,7 @@ func (c *PrevoteCache) HasPrevote(pv *ethpb.PreVote) (bool, error) {
 	return false, nil
 }
 
+// SavePrevote adds provided instance to the cache.
 func (c *PrevoteCache) SavePrevote(pv *ethpb.PreVote) error {
 	if pv == nil {
 		return nil
@@ -115,6 +117,7 @@ func (c *PrevoteCache) hasSeenBit(pv *ethpb.PreVote) (bool, error) {
 	return false, nil
 }
 
+// GetPrevoteBySlot get actual votes by slot.
 func (c *PrevoteCache) GetPrevoteBySlot(ctx context.Context, slot types.Slot) []*ethpb.PreVote {
 	_, span := trace.StartSpan(ctx, "operations.prevote.GetPrevoteBySlot")
 	defer span.End()
@@ -135,6 +138,7 @@ func (c *PrevoteCache) GetPrevoteBySlot(ctx context.Context, slot types.Slot) []
 	return []*ethpb.PreVote{}
 }
 
+// PurgeOutdatedPrevote removes unactual votes by slot.
 func (c *PrevoteCache) PurgeOutdatedPrevote(curSlot types.Slot) error {
 	c.prevoteCacheLock.RLock()
 	defer c.prevoteCacheLock.RUnlock()

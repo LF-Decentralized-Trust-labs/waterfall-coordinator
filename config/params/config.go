@@ -1,4 +1,4 @@
-// Package params defines important constants that are essential to Prysm services.
+// Package params defines important constants that are essential to coordinator's services.
 package params
 
 import (
@@ -49,7 +49,7 @@ type BeaconChainConfig struct {
 	ZeroHash                [32]byte // ZeroHash is used to represent a zeroed out 32 byte array.
 
 	// Time parameters constants.
-	GenesisDelay                     uint64      `yaml:"GENESIS_DELAY" spec:"true"`                   // GenesisDelay is the minimum number of seconds to delay starting the Ethereum Beacon Chain genesis. Must be at least 1 second.
+	GenesisDelay                     uint64      `yaml:"GENESIS_DELAY" spec:"true"`                   // GenesisDelay is the minimum number of seconds to delay starting the Beacon Chain genesis. Must be at least 1 second.
 	MinAttestationInclusionDelay     types.Slot  `yaml:"MIN_ATTESTATION_INCLUSION_DELAY" spec:"true"` // MinAttestationInclusionDelay defines how many slots validator has to wait to include attestation for beacon block.
 	SecondsPerSlot                   uint64      `yaml:"SECONDS_PER_SLOT" spec:"true"`                // SecondsPerSlot is how many seconds are in a single slot.
 	SlotsPerEpoch                    types.Slot  `yaml:"SLOTS_PER_EPOCH" spec:"true"`                 // SlotsPerEpoch is the number of slots in an epoch.
@@ -74,7 +74,7 @@ type BeaconChainConfig struct {
 	ProposerScoreBoost uint64 `yaml:"PROPOSER_SCORE_BOOST" spec:"true"` // ProposerScoreBoost defines a value that is a % of the committee weight for fork-choice boosting.
 	IntervalsPerSlot   uint64 `yaml:"INTERVALS_PER_SLOT" spec:"true"`   // IntervalsPerSlot defines the number of fork choice intervals in a slot defined in the fork choice spec.
 
-	// Ethereum PoW parameters.
+	// Shard chain parameters.
 	DepositChainID         uint64 `yaml:"DEPOSIT_CHAIN_ID" spec:"true"`         // DepositChainID of the eth1 network. This used for replay protection.
 	DepositNetworkID       uint64 `yaml:"DEPOSIT_NETWORK_ID" spec:"true"`       // DepositNetworkID of the eth1 network. This used for replay protection.
 	DepositContractAddress string `yaml:"DEPOSIT_CONTRACT_ADDRESS" spec:"true"` // DepositContractAddress is the address of the deposit contract.
@@ -222,7 +222,10 @@ type BeaconChainConfig struct {
 	DefaultFeeRecipient              common.Address // DefaultFeeRecipient where the transaction fee goes to.
 }
 
+// CtxFnKey key of function of context.
 type CtxFnKey string
+
+// CtxBlockFetcher provides block info required for state transition.
 type CtxBlockFetcher func(context.Context, [32]byte) (types.ValidatorIndex, types.Slot, uint64, error)
 
 // InitializeForkSchedule initializes the schedules forks baked into the config.

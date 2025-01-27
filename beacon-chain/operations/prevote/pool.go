@@ -21,6 +21,8 @@ import (
 	ethpb "gitlab.waterfall.network/waterfall/protocol/coordinator/proto/prysm/v1alpha1"
 )
 
+// Pool defines the necessary methods for pool of preliminary voting
+// to efficiently attestation process.
 type Pool interface {
 	HasPrevote(att *ethpb.PreVote) (bool, error)
 	SavePrevote(att *ethpb.PreVote) error
@@ -28,6 +30,7 @@ type Pool interface {
 	PurgeOutdatedPrevote(curSlot types.Slot) error
 }
 
+// NewPool initializes a new pool.
 func NewPool() *PrevoteCache {
 	return NewPrevoteCache()
 }

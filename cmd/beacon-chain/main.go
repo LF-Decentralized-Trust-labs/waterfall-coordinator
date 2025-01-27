@@ -1,4 +1,4 @@
-// Package beacon-chain defines the entire runtime of an Ethereum beacon node.
+// Package beacon-chain defines the entire runtime of an beacon node.
 package main
 
 import (

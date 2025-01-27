@@ -199,6 +199,7 @@ func (p *Pool) MarkIncluded(withdrawal *ethpb.Withdrawal) {
 	}
 }
 
+// Verify checks provided instance is acceptable.
 func (p *Pool) Verify(withdrawal *ethpb.Withdrawal) error {
 	p.lock.Lock()
 	defer p.lock.Unlock()

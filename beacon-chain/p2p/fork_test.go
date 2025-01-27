@@ -59,7 +59,7 @@ func TestStartDiscv5_DifferentForkDigests(t *testing.T) {
 
 		// We give every peer a different genesis validators root, which
 		// will cause each peer to have a different ForkDigest, preventing
-		// them from connecting according to our discovery rules for Ethereum consensus.
+		// them from connecting according to our discovery rules for consensus.
 		root := make([]byte, 32)
 		copy(root, strconv.Itoa(port))
 		s = &Service{
@@ -151,7 +151,7 @@ func TestStartDiscv5_SameForkDigests_DifferentNextForkData(t *testing.T) {
 
 		// We give every peer a different genesis validators root, which
 		// will cause each peer to have a different ForkDigest, preventing
-		// them from connecting according to our discovery rules for Ethereum consensus.
+		// them from connecting according to our discovery rules for consensus.
 		s = &Service{
 			started:               true,
 			cfg:                   cfg,

@@ -32,13 +32,13 @@ type ChainInfoFetcher interface {
 	HeadDomainFetcher
 }
 
-// TimeFetcher retrieves the Ethereum consensus data that's related to time.
+// TimeFetcher retrieves the consensus data that's related to time.
 type TimeFetcher interface {
 	GenesisTime() time.Time
 	CurrentSlot() types.Slot
 }
 
-// GenesisFetcher retrieves the Ethereum consensus data related to its genesis.
+// GenesisFetcher retrieves the consensus data related to its genesis.
 type GenesisFetcher interface {
 	GenesisValidatorsRoot() [32]byte
 }
@@ -68,7 +68,7 @@ type HeadFetcher interface {
 	GetOptimisticSpines(ctx context.Context, baseSpine gwatCommon.Hash) ([]gwatCommon.HashArray, error)
 }
 
-// ForkFetcher retrieves the current fork information of the Ethereum beacon chain.
+// ForkFetcher retrieves the current fork information of the beacon chain.
 type ForkFetcher interface {
 	CurrentFork() *ethpb.Fork
 }

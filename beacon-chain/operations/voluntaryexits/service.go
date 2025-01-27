@@ -160,6 +160,7 @@ func (p *Pool) MarkIncluded(exit *ethpb.VoluntaryExit) {
 	}
 }
 
+// Verify checks provided instance is acceptable.
 func (p *Pool) Verify(exit *ethpb.VoluntaryExit) error {
 	p.lock.Lock()
 	defer p.lock.Unlock()

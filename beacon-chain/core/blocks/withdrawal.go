@@ -142,6 +142,7 @@ func ProcessWithdrawal(
 	return beaconState, nil
 }
 
+// VerifyWithdrawalData verifies is validator's exit data acceptable.
 func VerifyWithdrawalData(
 	withdrawal *ethpb.Withdrawal,
 	validator state.ReadOnlyValidator,

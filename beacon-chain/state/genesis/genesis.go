@@ -1,3 +1,6 @@
+/*
+Package implement decode and loading compressed genesis state.
+*/
 package genesis
 
 import (

@@ -266,7 +266,7 @@ func (m *MaxSpanChunksSlice) CheckSlashable(
 
 // Update a min span chunk for a validator index starting at the current epoch, e_c, then updating
 // down to e_c - H where H is the historyLength we keep for each span. This historyLength
-// corresponds to the weak subjectivity period of Ethereum consensus.
+// corresponds to the weak subjectivity period of consensus.
 // This means our updates are done in a sliding window manner. For example, if the current epoch
 // is 20 and the historyLength is 12, then we will update every value for the validator's min span
 // from epoch 20 down to epoch 9.

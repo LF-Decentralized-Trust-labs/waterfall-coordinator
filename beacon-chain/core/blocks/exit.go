@@ -69,6 +69,7 @@ func ProcessVoluntaryExits(
 	return beaconState, nil
 }
 
+// VerifyExitData verifies is validator's exit data acceptable.
 func VerifyExitData(
 	validator state.ReadOnlyValidator,
 	currentSlot types.Slot,

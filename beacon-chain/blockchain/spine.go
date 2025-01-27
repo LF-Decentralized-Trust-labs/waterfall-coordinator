@@ -40,6 +40,7 @@ type spineData struct {
 	sync.RWMutex
 }
 
+// GetOptimisticSpines retrieves and caches actual optimistic spines.
 func (s *Service) GetOptimisticSpines(ctx context.Context, baseSpine gwatCommon.Hash) ([]gwatCommon.HashArray, error) {
 	if s.isSynchronizing() {
 		log.WithError(fmt.Errorf("Node syncing to latest head, not ready to respond")).WithFields(logrus.Fields{

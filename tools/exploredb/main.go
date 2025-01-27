@@ -1,11 +1,9 @@
-/**
- * Explore DB contents
- *
- * Given a beacon-chain DB, This tool provides many option to
- * inspect and explore it. For every non-empty bucket, print
- * the number of rows, bucket size,min/average/max size of values
- */
-
+/*
+Explore DB contents.
+Given a beacon-chain DB, This tool provides many option to
+inspect and explore it. For every non-empty bucket, print
+the number of rows, bucket size,min/average/max size of values.
+*/
 package main
 
 import (
