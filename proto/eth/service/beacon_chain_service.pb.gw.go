@@ -17,7 +17,6 @@ import (
 	"github.com/grpc-ecosystem/grpc-gateway/v2/utilities"
 	github_com_prysmaticlabs_eth2_types "github.com/prysmaticlabs/eth2-types"
 	"gitlab.waterfall.network/waterfall/protocol/coordinator/proto/eth/v1"
-	v1 "gitlab.waterfall.network/waterfall/protocol/coordinator/proto/eth/v1"
 	"gitlab.waterfall.network/waterfall/protocol/coordinator/proto/eth/v2"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
