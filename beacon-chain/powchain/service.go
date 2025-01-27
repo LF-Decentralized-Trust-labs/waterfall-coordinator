@@ -560,6 +560,9 @@ func (s *Service) headSyncTxLogsByBlockEvt(data *statefeed.BlockProcessedData, i
 	//check depositRoot in cache
 	cpDepRoot := cpSt.Eth1Data().DepositRoot
 	cpDepCount := cpSt.Eth1Data().DepositCount
+	if cpDepCount == 0 {
+		return nil
+	}
 	deps := s.cfg.depositCache.AllDepositContainers(s.ctx)
 
 	if uint64(len(deps)) < cpDepCount || !bytes.Equal(deps[cpDepCount-1].DepositRoot, cpDepRoot) {
