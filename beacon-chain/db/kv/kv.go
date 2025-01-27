@@ -207,8 +207,6 @@ func NewKVStore(ctx context.Context, dirPath string, config *Config) (*Store, er
 			feeRecipientBucket,
 			// spines lists bucket
 			spinesBucket,
-			// validator operation bucket
-			valOpPoolBucket,
 		)
 	}); err != nil {
 		log.WithField("elapsed", time.Since(start)).Error("Failed to update db and create buckets")
