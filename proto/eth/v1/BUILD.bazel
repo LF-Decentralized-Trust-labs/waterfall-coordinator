@@ -58,8 +58,6 @@ ssz_gen_marshal(
         "Validator",
         "VoluntaryExit",
         "Withdrawal",
-        "VoluntaryExitList",
-        "WithdrawalList",
     ],
 )
 
