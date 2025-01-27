@@ -451,7 +451,6 @@ func (s *Service) headSyncTxLogsByBlockEvt(data *statefeed.BlockProcessedData, i
 		blockNumberGauge.Set(0)
 		s.latestEth1Data.BlockHash = baseSpine.Bytes()
 		s.latestEth1Data.BlockTime = genesisSt.GenesisTime()
-		s.latestEth1Data.CpHash = baseSpine.Bytes()
 		s.latestEth1Data.LastRequestedBlock = 0
 	} else {
 		prevRoot := bytesutil.ToBytes32(cpSt.FinalizedCheckpoint().Root)
@@ -466,7 +465,7 @@ func (s *Service) headSyncTxLogsByBlockEvt(data *statefeed.BlockProcessedData, i
 		}
 
 		if uint64(s.lastReceivedMerkleIndex) < prevSt.Eth1Data().DepositCount-1 {
-			handledCount, err := s.handleFinalizedDeposits(bytesutil.ToBytes32(data.SignedBlock.Block().ParentRoot()))
+			handledCount, err := s.handleFinalizedDeposits(prevRoot)
 			if err != nil {
 				log.WithError(err).WithFields(logrus.Fields{
 					" slot":        data.Slot,
@@ -504,7 +503,7 @@ func (s *Service) headSyncTxLogsByBlockEvt(data *statefeed.BlockProcessedData, i
 		s.latestEth1Data.BlockHeight = prevHeader.Nr()
 		s.latestEth1Data.BlockHash = baseSpine.Bytes()
 		s.latestEth1Data.BlockTime = prevHeader.Time
-		s.latestEth1Data.CpHash = baseSpine.Bytes()
+		//s.latestEth1Data.CpHash = baseSpine.Bytes()
 		s.latestEth1Data.CpNr = prevHeader.Nr()
 		s.latestEth1Data.LastRequestedBlock = s.followBlockHeight(s.ctx)
 	}
@@ -907,7 +906,7 @@ func (s *Service) processBlockHeader(header *gwatTypes.Header, hash *gwatCommon.
 	}
 	s.latestEth1Data.BlockHeight = header.Nr()
 	s.latestEth1Data.BlockTime = header.Time
-	s.latestEth1Data.CpHash = header.CpHash.Bytes()
+	//s.latestEth1Data.CpHash = header.CpHash.Bytes()
 	s.latestEth1Data.CpNr = header.CpNumber
 
 	blockNumberGauge.Set(float64(header.Nr()))
@@ -1044,13 +1043,10 @@ func (s *Service) initPOWService() {
 			log.WithFields(logrus.Fields{
 				"EthLFinNr":                              header.Nr(),
 				"s.preGenesisState.Eth1Data().BlockHash": fmt.Sprintf("%#x", s.preGenesisState.Eth1Data().BlockHash),
-				//"EthLFinHash":          fmt.Sprintf("%#x", header.Hash()),
-				"lastEth.LastReqBlock":    s.latestEth1Data.LastRequestedBlock,
-				"lastEth.CpNr":            s.latestEth1Data.CpNr,
-				"lastEth.CpHash":          fmt.Sprintf("%#x", s.latestEth1Data.CpHash),
-				"lastEth.BlockHeight":     s.latestEth1Data.BlockHeight,
-				"depositTrie.NumOfItems":  s.depositTrie.NumOfItems(),
-				"lastReceivedMerkleIndex": s.lastReceivedMerkleIndex,
+				"lastEth.LastReqBlock":                   s.latestEth1Data.LastRequestedBlock,
+				"lastEth.BlockHeight":                    s.latestEth1Data.BlockHeight,
+				"depositTrie.NumOfItems":                 s.depositTrie.NumOfItems(),
+				"lastReceivedMerkleIndex":                s.lastReceivedMerkleIndex,
 			}).Info("=== LogProcessing: initPOWService: 00000")
 
 			if err := s.processPastLogs(ctx); err != nil {
@@ -1082,13 +1078,10 @@ func (s *Service) run(done <-chan struct{}) {
 		log.WithFields(logrus.Fields{
 			"lastHandledSlot":             s.lastHandledSlot,
 			"s.preGenesisState.BlockHash": fmt.Sprintf("%#x", s.preGenesisState.Eth1Data().BlockHash),
-			//"EthLFinHash":          fmt.Sprintf("%#x", header.Hash()),
-			"lastEth.LastReqBlock":    s.latestEth1Data.LastRequestedBlock,
-			"lastEth.CpNr":            s.latestEth1Data.CpNr,
-			"lastEth.CpHash":          fmt.Sprintf("%#x", s.latestEth1Data.CpHash),
-			"lastEth.BlockHeight":     s.latestEth1Data.BlockHeight,
-			"depositTrie.NumOfItems":  s.depositTrie.NumOfItems(),
-			"lastReceivedMerkleIndex": s.lastReceivedMerkleIndex,
+			"lastEth.LastReqBlock":        s.latestEth1Data.LastRequestedBlock,
+			"lastEth.BlockHeight":         s.latestEth1Data.BlockHeight,
+			"depositTrie.NumOfItems":      s.depositTrie.NumOfItems(),
+			"lastReceivedMerkleIndex":     s.lastReceivedMerkleIndex,
 		}).Info("=== LogProcessing: run: start the delegating stake fork")
 
 		return
@@ -1117,13 +1110,10 @@ func (s *Service) run(done <-chan struct{}) {
 				log.WithFields(logrus.Fields{
 					"slot":                        s.lastHandledSlot,
 					"s.preGenesisState.BlockHash": fmt.Sprintf("%#x", s.preGenesisState.Eth1Data().BlockHash),
-					//"EthLFinHash":          fmt.Sprintf("%#x", header.Hash()),
-					"lastEth.LastReqBlock":    s.latestEth1Data.LastRequestedBlock,
-					"lastEth.CpNr":            s.latestEth1Data.CpNr,
-					"lastEth.CpHash":          fmt.Sprintf("%#x", s.latestEth1Data.CpHash),
-					"lastEth.BlockHeight":     s.latestEth1Data.BlockHeight,
-					"depositTrie.NumOfItems":  s.depositTrie.NumOfItems(),
-					"lastReceivedMerkleIndex": s.lastReceivedMerkleIndex,
+					"lastEth.LastReqBlock":        s.latestEth1Data.LastRequestedBlock,
+					"lastEth.BlockHeight":         s.latestEth1Data.BlockHeight,
+					"depositTrie.NumOfItems":      s.depositTrie.NumOfItems(),
+					"lastReceivedMerkleIndex":     s.lastReceivedMerkleIndex,
 				}).Info("=== LogProcessing: run ticker: start the delegating stake fork")
 				return
 			}
@@ -1132,13 +1122,10 @@ func (s *Service) run(done <-chan struct{}) {
 				"slot":                        s.lastHandledSlot,
 				"IsDelegate":                  params.BeaconConfig().IsDelegatingStakeSlot(s.lastHandledSlot),
 				"s.preGenesisState.BlockHash": fmt.Sprintf("%#x", s.preGenesisState.Eth1Data().BlockHash),
-				//"EthLFinHash":          fmt.Sprintf("%#x", header.Hash()),
-				"lastEth.LastReqBlock":    s.latestEth1Data.LastRequestedBlock,
-				"lastEth.CpNr":            s.latestEth1Data.CpNr,
-				"lastEth.CpHash":          fmt.Sprintf("%#x", s.latestEth1Data.CpHash),
-				"lastEth.BlockHeight":     s.latestEth1Data.BlockHeight,
-				"depositTrie.NumOfItems":  s.depositTrie.NumOfItems(),
-				"lastReceivedMerkleIndex": s.lastReceivedMerkleIndex,
+				"lastEth.LastReqBlock":        s.latestEth1Data.LastRequestedBlock,
+				"lastEth.BlockHeight":         s.latestEth1Data.BlockHeight,
+				"depositTrie.NumOfItems":      s.depositTrie.NumOfItems(),
+				"lastReceivedMerkleIndex":     s.lastReceivedMerkleIndex,
 			}).Info("=== LogProcessing: run ticker")
 
 			head, err := s.eth1DataFetcher.HeaderByNumber(s.ctx, nil)
@@ -1253,8 +1240,8 @@ func (s *Service) resetEth1Data(ctx context.Context) error {
 		BlockTime:          0,
 		BlockHash:          []byte{},
 		LastRequestedBlock: 0,
-		CpHash:             []byte{},
 		CpNr:               0,
+		//CpHash:             []byte{},
 	}
 	numOfItems := s.depositTrie.NumOfItems()
 	s.lastReceivedMerkleIndex = int64(numOfItems - 1)

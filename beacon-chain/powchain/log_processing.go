@@ -48,7 +48,6 @@ func (s *Service) ProcessETH1Block(ctx context.Context, blkNum uint64) error {
 
 	log.WithFields(logrus.Fields{
 		"lastEth.LastReqBlock": s.latestEth1Data.LastRequestedBlock,
-		"lastEth.CpNr":         s.latestEth1Data.CpNr,
 		"-startBlk":            blkNum,
 		"-endBlk":              blkNum,
 	}).Info("=== LogProcessing: FilterQuery: ProcessETH1Block: 0000")
@@ -481,7 +480,6 @@ func (s *Service) processPastLogs(ctx context.Context) error {
 			"lastEth.BlockHash":    fmt.Sprintf("%#x", s.latestEth1Data.BlockHash),
 			"lastEth.BlockHeight":  s.latestEth1Data.BlockHeight,
 			"lastEth.LastReqBlock": s.latestEth1Data.LastRequestedBlock,
-			"lastEth.CpNr":         s.latestEth1Data.CpNr,
 			"followBlockHeight":    s.followBlockHeight(ctx),
 			"Eth1FollowDistance":   params.BeaconConfig().Eth1FollowDistance,
 		}).Warn("=== LogProcessing: processPastLogs: get deposit count failed")
@@ -493,9 +491,7 @@ func (s *Service) processPastLogs(ctx context.Context) error {
 		"depositCount":         depositCount,
 		"handleSlot":           s.lastHandledSlot,
 		"isDldFork":            params.BeaconConfig().IsDelegatingStakeSlot(s.lastHandledSlot),
-		"lastEth.CpHash":       fmt.Sprintf("%#x", s.latestEth1Data.CpHash),
 		"lastEth.LastReqBlock": s.latestEth1Data.LastRequestedBlock,
-		"lastEth.CpNr":         s.latestEth1Data.CpNr,
 		"followBlockHeight":    s.followBlockHeight(ctx),
 		"Eth1FollowDistance":   params.BeaconConfig().Eth1FollowDistance,
 	}).Info("=== LogProcessing: processPastLogs")
@@ -516,7 +512,6 @@ func (s *Service) processPastLogs(ctx context.Context) error {
 
 		log.WithFields(logrus.Fields{
 			"lastEth.LastReqBlock": s.latestEth1Data.LastRequestedBlock,
-			"lastEth.CpNr":         s.latestEth1Data.CpNr,
 			"-startBlk":            start,
 			"-endBlk":              end,
 			"latestFollowHeight":   latestFollowHeight,
@@ -618,7 +613,6 @@ func (s *Service) requestBatchedHeadersAndLogs(ctx context.Context) error {
 
 	log.WithFields(logrus.Fields{
 		"lastEth.LastReqBlock": s.latestEth1Data.LastRequestedBlock,
-		"lastEth.CpNr":         s.latestEth1Data.CpNr,
 		"cond":                 requestedBlock > s.latestEth1Data.LastRequestedBlock && requestedBlock-s.latestEth1Data.LastRequestedBlock > maxTolerableDifference,
 		"cond_0":               requestedBlock > s.latestEth1Data.LastRequestedBlock,
 		"cond_1":               requestedBlock-s.latestEth1Data.LastRequestedBlock > maxTolerableDifference,
@@ -644,7 +638,6 @@ func (s *Service) requestBatchedHeadersAndLogs(ctx context.Context) error {
 		log.WithFields(logrus.Fields{
 			"i":                    i,
 			"lastEth.LastReqBlock": s.latestEth1Data.LastRequestedBlock,
-			"lastEth.CpNr":         s.latestEth1Data.CpNr,
 		}).Info("=== LogProcessing: requestBatchedHeadersAndLogs: 1111")
 	}
 
