@@ -99,6 +99,51 @@ func (s *Service) BlockHashByHeight(ctx context.Context, height *big.Int) (commo
 	return header.Hash(), nil
 }
 
+// BlockSlotByHeight returns the block hash of the block at the given height.
+func (s *Service) BlockSlotByHeight(ctx context.Context, height *big.Int) (uint64, error) {
+	ctx, span := trace.StartSpan(ctx, "beacon-chain.web3service.BlockSlotByHeight")
+	defer span.End()
+
+	if exists, hInfo, err := s.headerCache.HeaderInfoByHeight(height); exists || err != nil {
+		if err != nil {
+			return 0, err
+		}
+		span.AddAttributes(trace.BoolAttribute("headerCacheHit", true))
+		return hInfo.Slot, nil
+	}
+	span.AddAttributes(trace.BoolAttribute("headerCacheHit", false))
+
+	if s.eth1DataFetcher == nil {
+		err := errors.New("nil eth1DataFetcher")
+		tracing.AnnotateError(span, err)
+		return 0, err
+	}
+
+	header, err := s.eth1DataFetcher.HeaderByNumber(ctx, height)
+	if err != nil {
+		if height == nil {
+			return 0, errors.Wrap(err, "could not query last finalized header")
+		}
+		return 0, errors.Wrap(err, fmt.Sprintf("could not query header with nr=%d", height.Uint64()))
+	}
+	if header == nil {
+		log.Errorf("could not query header with height %d", height.Uint64())
+		return 0, errors.Wrap(err, fmt.Sprintf("could not query header with nr=%d", height.Uint64()))
+	}
+	if header.Nr() == 0 && header.Height != 0 {
+		log.WithFields(logrus.Fields{
+			"header.Nr":     header.Nr(),
+			"header.Height": header.Height,
+			"blockHash":     fmt.Sprintf("%#x", s.latestEth1Data.BlockHash),
+		}).Error("Latest shard1 block is not finalized")
+		return 0, errors.Wrap(err, fmt.Sprintf("could not query header with height %d", height.Uint64()))
+	}
+	if err := s.headerCache.AddHeader(header); err != nil {
+		return 0, err
+	}
+	return header.Slot, nil
+}
+
 // BlockTimeByHeight fetches an eth1.0 block timestamp by its height.
 func (s *Service) BlockTimeByHeight(ctx context.Context, height *big.Int) (uint64, error) {
 	ctx, span := trace.StartSpan(ctx, "beacon-chain.web3service.BlockTimeByHeight")

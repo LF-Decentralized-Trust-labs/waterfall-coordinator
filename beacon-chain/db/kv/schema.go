@@ -20,7 +20,6 @@ var (
 	stateValidatorsBucket   = []byte("state-validators")
 	feeRecipientBucket      = []byte("fee-recipient")
 	spinesBucket            = []byte("spines")
-	valOpPoolBucket         = []byte("validator-op-pool")
 
 	// Deprecated: This bucket was migrated in PR 6461. Do not use, except for migrations.
 	slotsHasObjectBucket = []byte("slots-has-objects")
@@ -47,8 +46,6 @@ var (
 	finalizedCheckpointKey     = []byte("finalized-checkpoint")
 	powchainDataKey            = []byte("powchain-data")
 	lastValidatedCheckpointKey = []byte("last-validated-checkpoint")
-	withdrawalOpPoolKey        = []byte("withdrawal-op-pool")
-	exitOpPoolKey              = []byte("exit-op-pool")
 
 	// Below keys are used to identify objects are to be fork compatible.
 	// Objects that are only compatible with specific forks should be prefixed with such keys.

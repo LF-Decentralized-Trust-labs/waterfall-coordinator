@@ -75,6 +75,26 @@ func New() (*DepositCache, error) {
 	}, nil
 }
 
+func (dc *DepositCache) Reset(ctx context.Context) error {
+	_, span := trace.StartSpan(ctx, "DepositsCache.InsertDeposit")
+	defer span.End()
+
+	dc.depositsLock.Lock()
+	defer dc.depositsLock.Unlock()
+
+	finalizedDepositsTrie, err := trie.NewTrie(params.BeaconConfig().DepositContractTreeDepth)
+	if err != nil {
+		log.WithError(err).Error("Deposit cache: reset failed")
+		return err
+	}
+	dc.pendingDeposits = []*ethpb.DepositContainer{}
+	dc.deposits = []*ethpb.DepositContainer{}
+	dc.depositsByKey = map[[fieldparams.BLSPubkeyLength]byte][]*ethpb.DepositContainer{}
+	dc.finalizedDeposits = &FinalizedDeposits{Deposits: finalizedDepositsTrie, MerkleTrieIndex: -1}
+	log.Info("Deposit cache: reset")
+	return nil
+}
+
 // InsertDeposit into the database. If deposit or block number are nil
 // then this method does nothing.
 func (dc *DepositCache) InsertDeposit(ctx context.Context, d *ethpb.Deposit, blockNum uint64, index int64, depositRoot [32]byte) error {
@@ -327,22 +347,4 @@ func (dc *DepositCache) PruneProofs(ctx context.Context, untilDepositIndex int64
 	}
 
 	return nil
-}
-
-func (dc *DepositCache) GetBlockNrByDepositIndex(ctx context.Context, depIndex int64) (uint64, bool) {
-	_, span := trace.StartSpan(ctx, "DepositsCache.GetBlockNrByDepositIndex")
-	defer span.End()
-	dc.depositsLock.RLock()
-	defer dc.depositsLock.RUnlock()
-
-	if depIndex == -1 {
-		return 0, true
-	}
-
-	for _, ctnr := range dc.deposits {
-		if ctnr.Index == depIndex {
-			return ctnr.Eth1BlockHeight, true
-		}
-	}
-	return 0, false
 }

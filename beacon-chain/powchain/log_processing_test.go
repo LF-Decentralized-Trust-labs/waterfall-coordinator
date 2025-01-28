@@ -10,11 +10,8 @@ import (
 	"gitlab.waterfall.network/waterfall/protocol/coordinator/beacon-chain/core/feed"
 	"gitlab.waterfall.network/waterfall/protocol/coordinator/beacon-chain/db"
 	testDB "gitlab.waterfall.network/waterfall/protocol/coordinator/beacon-chain/db/testing"
-	"gitlab.waterfall.network/waterfall/protocol/coordinator/beacon-chain/operations/voluntaryexits"
-	"gitlab.waterfall.network/waterfall/protocol/coordinator/beacon-chain/operations/withdrawals"
 	mockPOW "gitlab.waterfall.network/waterfall/protocol/coordinator/beacon-chain/powchain/testing"
 	"gitlab.waterfall.network/waterfall/protocol/coordinator/config/params"
-	ethpb "gitlab.waterfall.network/waterfall/protocol/coordinator/proto/prysm/v1alpha1"
 	"gitlab.waterfall.network/waterfall/protocol/coordinator/testing/assert"
 	"gitlab.waterfall.network/waterfall/protocol/coordinator/testing/require"
 	ethereum "gitlab.waterfall.network/waterfall/protocol/gwat"
@@ -230,97 +227,6 @@ func TestProcessETH2GenesisLog_LargePeriodOfNoLogs(t *testing.T) {
 	require.LogsDoNotContain(t, hook, "Unable to unpack ChainStart log data")
 	require.LogsDoNotContain(t, hook, "Receipt root from log doesn't match the root saved in memory")
 	require.LogsDoNotContain(t, hook, "Invalid timestamp from log")
-
-	hook.Reset()
-}
-
-func TestRestoreValidatorOpPools(t *testing.T) {
-	t.Skip() // save of withdrawal pool is disabled
-	hook := logTest.NewGlobal()
-	testAcc, err := mockPOW.Setup()
-	require.NoError(t, err, "Unable to set up simulated backend")
-	kvStore := testDB.SetupDB(t)
-	depositCache, err := depositcache.New()
-	require.NoError(t, err)
-	server, endpoint, err := mockPOW.SetupRPCServer()
-	require.NoError(t, err)
-	t.Cleanup(func() {
-		server.Stop()
-	})
-
-	withdravalOps := []*ethpb.Withdrawal{
-		{
-			PublicKey:      common.BlsPubKey{0x01, 0x01, 0x01, 0x01, 0x01}.Bytes(),
-			ValidatorIndex: 100,
-			Amount:         100000000,
-			InitTxHash:     common.Hash{0x01, 0x01, 0x01, 0x01, 0x01}.Bytes(),
-			Epoch:          1000,
-		},
-		{
-			PublicKey:      common.BlsPubKey{0x02, 0x02, 0x02, 0x02, 0x02}.Bytes(),
-			ValidatorIndex: 200,
-			Amount:         200000000,
-			InitTxHash:     common.Hash{0x02, 0x02, 0x02, 0x02, 0x02}.Bytes(),
-			Epoch:          2000,
-		},
-		{
-			PublicKey:      common.BlsPubKey{0x03, 0x03, 0x03, 0x03, 0x03}.Bytes(),
-			ValidatorIndex: 300,
-			Amount:         300000000,
-			InitTxHash:     common.Hash{0x03, 0x03, 0x03, 0x03, 0x03}.Bytes(),
-			Epoch:          3000,
-		},
-	}
-	err = kvStore.WriteWithdrawalPool(context.Background(), withdravalOps)
-	require.NoError(t, err)
-
-	exitOps := []*ethpb.VoluntaryExit{
-		{
-			Epoch:          1000,
-			ValidatorIndex: 100,
-			InitTxHash:     common.Hash{0x01, 0x01, 0x01, 0x01, 0x01}.Bytes(),
-		},
-		{
-			ValidatorIndex: 200,
-			InitTxHash:     common.Hash{0x02, 0x02, 0x02, 0x02, 0x02}.Bytes(),
-			Epoch:          2000,
-		},
-		{
-			ValidatorIndex: 300,
-			InitTxHash:     common.Hash{0x03, 0x03, 0x03, 0x03, 0x03}.Bytes(),
-			Epoch:          3000,
-		},
-	}
-	err = kvStore.WriteExitPool(context.Background(), exitOps)
-	require.NoError(t, err)
-	web3Service, err := NewService(context.Background(),
-		WithHttpEndpoints([]string{endpoint}),
-		WithDatabase(kvStore),
-		WithDepositCache(depositCache),
-		WithWithdrawalPool(withdrawals.NewPool()),
-		WithExitPool(voluntaryexits.NewPool()),
-	)
-	require.NoError(t, err, "unable to setup web3 ETH1.0 chain service")
-	web3Service = setDefaultMocks(web3Service)
-	web3Service.rpcClient = &mockPOW.RPCClient{Backend: testAcc.Backend}
-	web3Service.httpLogger = testAcc.Backend
-	web3Service.eth1DataFetcher = &goodFetcher{backend: testAcc.Backend}
-	web3Service.latestEth1Data.LastRequestedBlock = 0
-	web3Service.latestEth1Data.BlockHeight = testAcc.Backend.Blockchain().GetLastFinalizedBlock().Nr()
-	web3Service.latestEth1Data.BlockTime = testAcc.Backend.Blockchain().GetLastFinalizedBlock().Time()
-	params.SetupTestConfigCleanup(t)
-	bConfig := params.MinimalSpecConfig()
-	bConfig.SecondsPerETH1Block = 10
-	params.OverrideBeaconConfig(bConfig)
-	nConfig := params.BeaconNetworkConfig()
-	params.OverrideBeaconNetworkConfig(nConfig)
-	testAcc.Backend.Commit()
-
-	resWithdravalOps := web3Service.cfg.withdrawalPool.CopyItems()
-	require.DeepEqual(t, withdravalOps, resWithdravalOps, "Restore witdrawal pool failed")
-
-	resExitOps := web3Service.cfg.exitPool.CopyItems()
-	require.DeepEqual(t, exitOps, resExitOps, "Restore exit pool failed")
 
 	hook.Reset()
 }
